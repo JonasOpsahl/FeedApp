@@ -33,6 +33,8 @@ dependencies {
     implementation("org.hibernate.orm:hibernate-core:7.1.1.Final")
 
 
+	implementation("org.springframework.kafka:spring-kafka")
+	implementation("org.apache.kafka:kafka-clients:3.7.0")
 }
 
 tasks.withType<Test> {
