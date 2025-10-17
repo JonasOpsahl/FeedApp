@@ -4,6 +4,7 @@
 **/dist/
 **/.vite/
 **/node_modules/
+**/static/
 
 # Editor and system
 .vscode/
