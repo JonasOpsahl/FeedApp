@@ -9,7 +9,7 @@ cd backend
 
 http://localhost:8080
 
-## Kjøre frontend og backend separat
+## Kjøre frontend separat
 
 ```bash
 cd frontend
