@@ -4,9 +4,9 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
-group = "com.exp2"
+group = "com.gruppe2"
 version = "0.0.1-SNAPSHOT"
-description = "Simple REST API"
+description = "FeedApp backend"
 
 java {
 	toolchain {
