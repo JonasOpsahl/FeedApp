@@ -1,4 +1,4 @@
-package com.gruppe2.FeedApp.Services;
+package com.gruppe2.FeedApp.services;
 
 import jakarta.persistence.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -6,18 +6,23 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.logging.Logger;
+
+import com.gruppe2.FeedApp.domain.*;
+
 import java.time.Instant;
 import java.util.*;
-import com.gruppe2.FeedApp.Domain.*;
 
 @Service
 @Transactional
 public class PollManager {
     private final EntityManager em;
+    private final Logger logger = Logger.getLogger(PollManager.class.getName());
 
     @Autowired
     public PollManager(EntityManager em) {
         this.em = em;
+        logger.info("PollManager initialized");
     }
 
     public int getNetVotesForOption(Long pollId, Long optionId) {

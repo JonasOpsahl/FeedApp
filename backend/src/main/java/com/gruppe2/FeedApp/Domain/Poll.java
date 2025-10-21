@@ -1,4 +1,4 @@
-package com.gruppe2.FeedApp.Domain;
+package com.gruppe2.FeedApp.domain;
 
 
 import jakarta.persistence.*;

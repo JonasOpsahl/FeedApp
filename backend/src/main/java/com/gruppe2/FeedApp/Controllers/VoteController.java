@@ -1,12 +1,12 @@
-package com.gruppe2.FeedApp.Controllers;
+package com.gruppe2.FeedApp.controllers;
 
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 import org.springframework.web.bind.annotation.*;
 
-import com.gruppe2.FeedApp.Domain.Vote;
-import com.gruppe2.FeedApp.Services.PollManager;
+import com.gruppe2.FeedApp.domain.Vote;
+import com.gruppe2.FeedApp.services.PollManager;
 import com.gruppe2.FeedApp.WebSocketServer;
 
 import java.util.List;

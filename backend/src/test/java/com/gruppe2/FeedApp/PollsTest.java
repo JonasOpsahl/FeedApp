@@ -7,16 +7,16 @@ import jakarta.persistence.PersistenceConfiguration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.gruppe2.FeedApp.domain.Poll;
+import com.gruppe2.FeedApp.domain.User;
+import com.gruppe2.FeedApp.domain.Vote;
+import com.gruppe2.FeedApp.domain.VoteOption;
+
 import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-
-import com.gruppe2.FeedApp.Domain.Poll;
-import com.gruppe2.FeedApp.Domain.User;
-import com.gruppe2.FeedApp.Domain.VoteOption;
-import com.gruppe2.FeedApp.Domain.Vote;
 
 
 
