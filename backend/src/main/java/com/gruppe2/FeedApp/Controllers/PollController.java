@@ -1,12 +1,12 @@
-package com.gruppe2.FeedApp.Controllers;
+package com.gruppe2.FeedApp.controllers;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import com.gruppe2.FeedApp.WebSocketServer;
-import com.gruppe2.FeedApp.Domain.Poll;
-import com.gruppe2.FeedApp.Domain.VoteOption;
-import com.gruppe2.FeedApp.Services.PollManager;
 // removed messaging service usage
+import com.gruppe2.FeedApp.domain.Poll;
+import com.gruppe2.FeedApp.domain.VoteOption;
+import com.gruppe2.FeedApp.services.PollManager;
 
 import java.util.*;
 
