@@ -49,9 +49,9 @@
   
     {:else if currentView === 'register'}
       <CreateUser onDone={() => currentView = 'login'} />
-      <nav>
-        <button on:click={goToLanding}>Back</button>
-      </nav>
+      <div style="text-align: center; margin-top: var(--spacing-lg);">
+          <button class="button button-secondary" on:click={goToLanding}>Back to Welcome</button>
+      </div>
   
     {:else if currentView === 'login'}
       <Login onLogin={goToMain} onBack={goToLanding} />
@@ -61,17 +61,17 @@
         <Vote />
   
       {:else if currentUser}
-        <nav>
-          <button on:click={() => mainTab = 'createPoll'} class:active={mainTab === 'createPoll'}>
-            Create poll
+        <div class="tab-nav">
+          <button on:click={() => mainTab = 'createPoll'} class="tab-button" class:active={mainTab === 'createPoll'}>
+            Create Poll
           </button>
-          <button on:click={() => mainTab = 'vote'} class:active={mainTab === 'vote'}>
-            Vote on polls
+          <button on:click={() => mainTab = 'vote'} class="tab-button" class:active={mainTab === 'vote'}>
+            Vote
           </button>
-          <button on:click={() => mainTab = 'admin'} class:active={mainTab === 'admin'}>
-            Administer polls
+          <button on:click={() => mainTab = 'admin'} class="tab-button" class:active={mainTab === 'admin'}>
+            Manage Polls
           </button>
-        </nav>
+        </div>
   
         {#if mainTab === 'createPoll'}
           <CreatePoll 
@@ -89,20 +89,16 @@
     {/if}
   </main>
 
-  <footer style="margin-top:2rem; text-align:center;">
+  <footer>
     {#if isGuest}
       <div>
-        You are in guest mode
-        <nav>
-          <button on:click={goToLanding} style="margin-left:1rem;">Back to login</button>
-        </nav>
+        You are in guest mode.
+        <button class="button button-secondary" on:click={goToLanding}>Back to Login</button>
       </div>
     {:else if currentUser}
       <div>
-        Logged in as <strong>{currentUser.username}  </strong>
-        <nav>
-          <button on:click={goToLanding} style="margin-top:1rem;">Log out</button>
-        </nav>
+        Logged in as <strong>{currentUser.username}</strong>
+        <button class="button button-danger" on:click={goToLanding}>Log Out</button>
       </div>
     {/if}
   </footer>

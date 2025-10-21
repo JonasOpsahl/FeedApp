@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import { API_BASE } from '../config.js';
   
     export let currentUser = null;
@@ -7,11 +7,16 @@
     let polls = [];
     let selectedPollId: number = null;
     let selectedPoll = null;
-    let selectedOption = '';
     let voteMessage = '';
     let loading = true;
+    let hasVoted = false;
   
     onMount(async () => {
+      await loadPolls();
+    });
+
+    async function loadPolls() {
+      loading = true;
       try {
         const res = await fetch(`${API_BASE}/polls`);
         if (res.ok) {
@@ -34,9 +39,11 @@
       } finally {
         loading = false;
       }
-    });
+    }
   
     async function fetchSelectedPoll(pollId: number) {
+      hasVoted = false;
+      voteMessage = '';
       const pollRes = await fetch(`${API_BASE}/polls/${pollId}`);
       const pollData = await pollRes.json();
   
@@ -48,6 +55,13 @@
           voteCounts,
           totalVotes: voteCounts.reduce((sum, v) => sum + v.voteCount, 0)
       };
+      
+      if (currentUser) {
+        const userVotesRes = await fetch(`${API_BASE}/polls/${pollId}/votes/${currentUser.id}`);
+        if (userVotesRes.ok) {
+            hasVoted = true;
+        }
+      }
     }
   
     async function submitVote(option) {
@@ -55,7 +69,8 @@
           alert('You must be logged in to vote!');
           return;
       }
-  
+      if (hasVoted) return;
+
       try {
           const res = await fetch(`${API_BASE}/polls/${selectedPoll.id}/votes`, {
               method: "POST",
@@ -72,9 +87,10 @@
               return;
           }
   
-          await fetchSelectedPoll(selectedPoll.id);
-          selectedOption = option.caption;
           voteMessage = `You voted for: ${option.caption}`;
+          hasVoted = true;
+          await tick();
+          await fetchSelectedPoll(selectedPoll.id);
       } catch (err) {
           console.error('Network error while voting', err);
           voteMessage = 'Network error while voting';
@@ -86,70 +102,55 @@
       if (total === 0) return 0;
       return Math.round((optionVoteCount / total) * 100);
     }
-  </script>
+</script>
   
-  <div class="card">
-    <h3>Available polls:</h3>
-  
-    {#if loading}
-      <p>Loading polls...</p>
-    {:else if polls.length === 0}
-      <p>No polls available for you.</p>
-    {:else}
-      <select bind:value={selectedPollId} on:change={async () => {
-        if (selectedPollId) {
-          await fetchSelectedPoll(selectedPollId);
-          selectedOption = '';
-          voteMessage = '';
-        }
-      }}>
-        {#each polls as poll (poll.id)}
-          <option value={poll.id}>{poll.question}</option>
-        {/each}
-      </select>
-  
-      {#if selectedPoll && selectedPoll.options.length > 0}
-        <h3 style="margin-top: 1.5rem;">Options:</h3>
-        <div class="options">
-          {#each selectedPoll.options as option}
-            <button on:click={() => submitVote(option)}>
-              {option.caption} - {selectedPoll.voteCounts.find(v => v.optionCaption === option.caption)?.voteCount || 0} votes
-              ({votePercentage(selectedPoll.voteCounts.find(v => v.optionCaption === option.caption)?.voteCount || 0)}%)
-            </button>
-          {/each}
-        </div>
-      {/if}
-  
-      {#if voteMessage}
-        <p style="margin-top: 2rem; color: #ffcc00;">
-          {voteMessage}
-        </p>
-      {/if}
+<div class="card">
+  <h3>Available polls</h3>
+
+  {#if loading}
+    <p>Loading polls...</p>
+  {:else if polls.length === 0}
+    <p>No polls available for you to vote on right now.</p>
+  {:else}
+    <select bind:value={selectedPollId} on:change={async () => {
+      if (selectedPollId) await fetchSelectedPoll(selectedPollId);
+    }}>
+      {#each polls as poll (poll.id)}
+        <option value={poll.id}>{poll.question}</option>
+      {/each}
+    </select>
+
+    {#if selectedPoll}
+        {#if hasVoted}
+            <div style="margin-top: var(--spacing-lg);">
+                <h3>Results</h3>
+                {#each selectedPoll.options as option}
+                    {@const voteCount = selectedPoll.voteCounts.find(v => v.optionCaption === option.caption)?.voteCount || 0}
+                    <div style="margin-bottom: var(--spacing-md);">
+                        <div class="vote-result-label">
+                            <span>{option.caption}</span>
+                            <strong>{voteCount} votes ({votePercentage(voteCount)}%)</strong>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" style="width: {votePercentage(voteCount)}%;"></div>
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {:else}
+            <div style="margin-top: var(--spacing-lg);">
+                <h3>Choose an option</h3>
+                {#each selectedPoll.options as option}
+                    <button class="vote-option" on:click={() => submitVote(option)}>
+                        {option.caption}
+                    </button>
+                {/each}
+            </div>
+        {/if}
+
+        {#if voteMessage}
+            <p class="success-message">{voteMessage}</p>
+        {/if}
     {/if}
-  </div>
-  
-  <style>
-    .options {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      margin-top: 1rem;
-    }
-  
-    .options button {
-      width: 100%;
-      text-align: left;
-      padding: 0.6rem 1rem;
-      border-radius: 6px;
-      background-color: #1a1a1a;
-      border: 1px solid transparent;
-      color: #fff;
-      cursor: pointer;
-      transition: border-color 0.25s, background-color 0.25s;
-    }
-  
-    .options button:hover {
-      border-color: #646cff;
-      background-color: #1a1aff20;
-    }
-  </style>
+  {/if}
+</div>

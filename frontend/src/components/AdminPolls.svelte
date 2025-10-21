@@ -33,7 +33,6 @@
     async function deletePoll(pollId) {
       try {
         const res = await fetch(`${API_BASE}/polls/${pollId}/${currentUser.id}`, {
-  
           method: "DELETE"
         });
         if (res.ok) {
@@ -46,64 +45,32 @@
         console.error('Network error', err);
       }
     }
-  </script>
+</script>
   
-  <div class="card">
-    {#if userPolls.length === 0}
-      <p>You have not created any polls yet.</p>
-    {:else}
-      <h3>Your Polls</h3>
-      <ul>
-        {#each userPolls as poll (poll.id)}
-          <li class="poll-item">
-            <span>{poll.question}</span>
-            <button on:click={() => pollToDelete = poll} class="delete-btn">Delete</button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  
-    {#if pollToDelete}
-      <div class="overlay">
-        <div class="confirm-box">
-          <p>Are you sure you want to delete this poll?</p>
-          <div class="buttons">
-            <button on:click={cancelDelete} class="cancel-btn">Cancel</button>
-            <button on:click={() => deletePoll(pollToDelete.id)} class="delete-btn">Delete</button>
-          </div>
+<div class="card">
+  {#if userPolls.length === 0}
+    <p>You have not created any polls yet.</p>
+  {:else}
+    <h3>Your Polls</h3>
+    <ul>
+      {#each userPolls as poll (poll.id)}
+        <li class="poll-item">
+          <span>{poll.question}</span>
+          <button on:click={() => confirmDelete(poll)} class="button button-danger button-sm">Delete</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  {#if pollToDelete}
+    <div class="overlay">
+      <div class="confirm-box">
+        <p>Are you sure you want to delete the poll "{pollToDelete.question}"?</p>
+        <div class="buttons">
+          <button on:click={cancelDelete} class="button button-secondary">Cancel</button>
+          <button on:click={() => deletePoll(pollToDelete.id)} class="button button-danger">Delete</button>
         </div>
       </div>
-    {/if}
-  </div>
-  
-  <style>
-    .card {
-      position: relative;
-    }
-  
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-  
-    .overlay {
-      position: absolute;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border-radius: 12px;
-      z-index: 10;
-    }
-  
-    .confirm-box {
-      background-color: #303030;
-      padding: 1.5rem;
-      border-radius: 6px;
-      text-align: center;
-      min-width: 250px;
-    }
-  
-  </style>
+    </div>
+  {/if}
+</div>

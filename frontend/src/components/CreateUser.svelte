@@ -32,50 +32,39 @@
     
         if (res.ok) {
           if (onDone) onDone();
-        } else if (res.status === 400) {
-          const errorText = await res.text();
-          const msgs = errorText.split(';').map(s => s.trim());
-          msgs.forEach(msg => {
-            if (msg.toLowerCase().includes('username')) errors.username = msg;
-            else if (msg.toLowerCase().includes('email')) errors.email = msg;
-            else if (msg.toLowerCase().includes('password')) errors.password = msg;
-            else errors.general = msg;
-          });
         } else if (res.status === 409) {
           errors.general = 'Username or email already exists!';
         } else {
           errors.general = `Unexpected error: ${res.statusText}`;
         }
       } catch (err) {
-        console.error(err);
         errors.general = `Network error: ${err.message}`;
       }
     }
-  </script>
+</script>
     
-    <section class="card">
-      <h3>Username</h3>
-      <input type="text" bind:value={username} placeholder="Enter username" />
-      {#if errors.username}<p class="error">{errors.username}</p>{/if}
-    
-      <h3>Email</h3>
-      <input type="email" bind:value={email} placeholder="Enter email" />
-      {#if errors.email}<p class="error">{errors.email}</p>{/if}
-    
-      <h3>Password</h3>
-      <input type="password" bind:value={password} placeholder="Enter password" />
-      {#if errors.password}<p class="error">{errors.password}</p>{/if}
-    
-      <nav>
-        <button on:click={createUser}>Create user</button>
-      </nav>
-    
-      {#if errors.general}
-        <p class="general">{errors.general}</p>
-      {/if}
-    </section>
-    
-    <style>
-      .error { color: #ff5555; font-size: 0.9rem; margin-top: 0.25rem; }
-      .general { color: #ffcc00; margin-top: 1rem; }
-    </style>
+<section class="card">
+  <div class="form-group">
+    <h3>Username</h3>
+    <input type="text" bind:value={username} placeholder="Username" />
+    {#if errors.username}<p class="error-message">{errors.username}</p>{/if}
+  </div>
+
+  <div class="form-group">
+    <h3>Email</h3>
+    <input type="email" bind:value={email} placeholder="Email" />
+    {#if errors.email}<p class="error-message">{errors.email}</p>{/if}
+  </div>
+
+  <div class="form-group">
+    <h3>Password</h3>
+    <input type="password" bind:value={password} placeholder="Password" />
+    {#if errors.password}<p class="error-message">{errors.password}</p>{/if}
+  </div>
+
+  <button on:click={createUser} class="button button-primary button-full-width">Create User</button>
+  
+  {#if errors.general}
+    <p class="error-message" style="text-align: center; margin-top: var(--spacing-lg);">{errors.general}</p>
+  {/if}
+</section>

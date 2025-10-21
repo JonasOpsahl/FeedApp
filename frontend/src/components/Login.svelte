@@ -16,28 +16,35 @@
           body: JSON.stringify({ email, password })
         });
   
-          if (res.ok) {
+        if (res.ok) {
           const user = await res.json();
           if (onLogin) onLogin(user);
         } else {
-          error = 'Invalid credentials';
+          error = 'Invalid credentials. Please try again.';
         }
       } catch (err) {
         error = `Network error: ${err.message}`;
       }
     }
-  </script>
+</script>
     
-  <section class="card">
-    <h3>Login</h3>
+<section class="card">
+  <h2 style="text-align: center;">Login</h2>
+  <div class="form-group">
+    <h3>Email</h3>
     <input type="email" bind:value={email} placeholder="Email" />
+  </div>
+  <div class="form-group">
+    <h3>Password</h3>
     <input type="password" bind:value={password} placeholder="Password" />
-    <nav>
-      <button on:click={login}>Login</button>
-      <button on:click={onBack}>Back</button>
-    </nav>
-    
-    {#if error}
-      <p class="error">{error}</p>
-    {/if}
-  </section>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
+    <button on:click={login} class="button button-primary">Login</button>
+    <button on:click={onBack} class="button button-secondary">Back</button>
+  </div>
+  
+  {#if error}
+    <p class="error-message" style="text-align: center; margin-top: var(--spacing-lg);">{error}</p>
+  {/if}
+</section>
