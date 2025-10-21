@@ -1,13 +1,13 @@
 services:
   frontend:
-    build: ./PollApp
+    build: ./frontend
     ports:
       - "5173:5173"
     depends_on:
       - backend
 
   backend:
-    build: ./api
+    build: ./backend
     ports:
       - "8080:8080"
     environment:
