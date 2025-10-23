@@ -10,6 +10,7 @@ import com.gruppe2.backend.service.ProducerService;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import com.gruppe2.backend.config.RawWebSocketServer;
 import java.util.Map;
 import java.util.Optional;
 
@@ -65,35 +66,45 @@ public class PollController {
             pollOptions.add(option);
         }
 
-        return pollService.createPoll(
-            question,
-            durationDays,
-            creatorId,
-            visibility,
-            maxVotesPerUser,
-            invitedUsers == null ? new ArrayList<>() : invitedUsers,
-            pollOptions
+         Poll created = pollService.createPoll(
+        question, durationDays, creatorId, visibility,
+        maxVotesPerUser,
+        invitedUsers == null ? new ArrayList<>() : invitedUsers,
+        pollOptions
         );
+
+        // WebSocket notifications
+        RawWebSocketServer.broadcast("pollsUpdated");
+        RawWebSocketServer.broadcastJson(Map.of(
+            "type", "poll-created",
+            "pollId", created.getPollId(),
+            "ts", System.currentTimeMillis()
+        ));
+
+        return created;
     }
 
     @PostMapping("/{id}/vote")
     @ResponseStatus(HttpStatus.ACCEPTED)
-    public void castVote(
-            @PathVariable("id") Integer pollId,
-            @RequestParam Integer presentationOrder,
-            @RequestParam(required = false) Optional<Integer> userId) {
-
+    public void castVote(@PathVariable("id") Integer pollId,
+                     @RequestParam Integer presentationOrder,
+                     @RequestParam(required = false) Optional<Integer> userId) {
         Map<String, Object> voteData = new HashMap<>();
         voteData.put("pollId", pollId);
         voteData.put("presentationOrder", presentationOrder);
         voteData.put("userId", userId.orElse(null));
 
         producerService.sendEvent(voteData);
-    }
 
-    @GetMapping("/{id}/results")
-    public Map<String, Integer> getPollResults(@PathVariable("id") Integer pollId) {
-        return pollService.getPollResults(pollId);
+        // WebSocket: optimistic vote delta + legacy ping
+        RawWebSocketServer.broadcast("votesUpdated");
+        RawWebSocketServer.broadcastJson(Map.of(
+            "type", "vote-delta",
+            "pollId", pollId,
+            "optionOrder", presentationOrder,
+            "voterUserId", userId.orElse(null),
+            "ts", System.currentTimeMillis()
+        ));
     }
 
     @PutMapping("/{id}")
@@ -107,7 +118,17 @@ public class PollController {
 
     @DeleteMapping("/{id}")
     public boolean deletePoll(@PathVariable Integer id) {
-        return pollService.deletePoll(id);
+        boolean ok = pollService.deletePoll(id);
+
+        if (ok) {
+            RawWebSocketServer.broadcast("pollsUpdated");
+            RawWebSocketServer.broadcastJson(Map.of(
+                "type", "poll-deleted",
+                "pollId", id,
+                "ts", System.currentTimeMillis()
+            ));
+        }
+        return ok;
     }
 
 }

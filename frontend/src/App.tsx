@@ -6,12 +6,19 @@ import Login from "./components/Login";
 import { useAuth } from "./Auth";
 import { fetchVisiblePolls, type Poll } from "./api";
 
+import WebSocketMessages from "./components/WebSocketMessages";
+import { connectWs, onWs, type WsEvent } from "./ws";
+
+
 function App() {
   const { currentUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<"create" | "vote">("vote");
   const [polls, setPolls] = useState<Poll[]>([]);
 
   const [isLoginView, setIsLoginView] = useState(false);
+
+  const [wsMessages, setWsMessages] = useState<string[]>([]);
+
 
   const refreshPolls = () => {
     fetchVisiblePolls(currentUser?.id)
@@ -21,13 +28,33 @@ function App() {
       });
   };
 
+  // WebSocket: connect and subscribe once
   useEffect(() => {
-    refreshPolls();
-    if (!currentUser) {
-      setIsLoginView(false);
-      setActiveTab("vote");
-    }
-  }, [currentUser]);
+    connectWs();
+    const off = onWs((msg) => {
+      if (typeof msg === "string") {
+        setWsMessages((prev) => [msg, ...prev].slice(0, 25));
+        if (msg === "pollsUpdated") refreshPolls();
+        if (msg === "votesUpdated") refreshPolls();
+        return;
+      }
+      const e = msg as WsEvent;
+      if (e.type === "poll-created" || e.type === "poll-deleted") {
+        setWsMessages((p) => [`${e.type} #${e.pollId}`, ...p].slice(0, 25));
+        refreshPolls();
+      } else if (e.type === "vote-delta") {
+        setWsMessages((p) => [
+          `vote-delta poll=${e.pollId} optionOrder=${e.optionOrder}`,
+          ...p
+        ].slice(0, 25));
+        // Optionally refresh only that poll here
+        refreshPolls();
+      }
+    });
+    return () => {
+      if (typeof off === "function") off();
+    };
+  }, []);
 
   const handlePollCreated = () => {
     refreshPolls();
@@ -40,6 +67,7 @@ function App() {
 
   return (
     <div className={styles.appContainer}>
+      <WebSocketMessages messages={wsMessages} />
       <header className={styles.header}>
         {currentUser ? (
           <>
