@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
-
 @RestController
 @CrossOrigin
 @RequestMapping("/api/polls")
@@ -104,6 +103,16 @@ public class PollController {
     @GetMapping("/{id}/results")
     public Map<String, Integer> getPollResults(@PathVariable("id") Integer pollId) {
         return pollService.getPollResults(pollId);
+
+        // WebSocket: optimistic vote delta + legacy ping
+        RawWebSocketServer.broadcast("votesUpdated");
+        RawWebSocketServer.broadcastJson(Map.of(
+            "type", "vote-delta",
+            "pollId", pollId,
+            "optionOrder", presentationOrder,
+            "voterUserId", userId.orElse(null),
+            "ts", System.currentTimeMillis()
+        ));
     }
 
     @PutMapping("/{id}")
