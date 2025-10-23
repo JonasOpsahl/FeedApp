@@ -4,6 +4,9 @@ import type { Poll as PollData } from "../api";
 import { useAuth } from "../Auth";
 import { castVote, getPollResults } from "../api";
 
+import { connectWs, onWs } from "../ws";
+
+
 interface VoteOnPollProps {
   pollData: PollData;
 }
@@ -14,17 +17,35 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
   const [hasVoted, setHasVoted] = useState(false);
   const [results, setResults] = useState<Record<string, number>>({});
 
+  const loadResults = async () => {
+    try {
+      const pollResults = await getPollResults(pollData.pollId);
+      setResults(pollResults);
+    } catch (error) {
+      console.error("Could not fetch poll results", error);
+    }
+  };
+  
   useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        const pollResults = await getPollResults(pollData.pollId);
-        setResults(pollResults);
-      } catch (error) {
-        console.error("Could not fetch poll results", error);
-      }
-    };
+    void loadResults();
+  }, [pollData.pollId]);
 
-    fetchResults();
+  // Subscribe to WebSocket for this poll
+  useEffect(() => {
+    connectWs();
+    const off = onWs((msg) => {
+      if (typeof msg === "string") {
+        if (msg === "votesUpdated") void loadResults();
+        return;
+      }
+      if (msg.type === "vote-delta" && Number(msg.pollId) === Number(pollData.pollId)) {
+        void loadResults();
+      }
+    });
+    return () => {
+      // call unsubscribe and ignore its return value so cleanup returns void
+      off();
+    };
   }, [pollData.pollId]);
 
 

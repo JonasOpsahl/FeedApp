@@ -17,6 +17,6 @@ tasks.register<NpmTask>("runBuild") {
 
 tasks.register<Copy>("copyWebApp") {
     from("dist")
-    into("../api/src/main/resources/static")
+    into("../backend/src/main/resources/static")
     dependsOn("runBuild")
 }

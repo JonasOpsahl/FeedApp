@@ -4,7 +4,7 @@ COPY settings.gradle.kts build.gradle.kts .
 COPY src src
 COPY gradle gradle
 RUN gradle bootJar
-RUN mv build/libs/api-0.0.1-SNAPSHOT.jar app.jar
+RUN mv build/libs/backend-0.0.1-SNAPSHOT.jar app.jar
 
 FROM eclipse-temurin:21-alpine
 RUN addgroup -g 1000 app

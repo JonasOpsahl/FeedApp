@@ -4,9 +4,9 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 }
 
-group = "com.exp2"
+group = "com.gruppe2"
 version = "0.0.1-SNAPSHOT"
-description = "Simple REST API"
+description = "FeedApp backend"
 
 java {
 	toolchain {
@@ -32,6 +32,8 @@ dependencies {
 	implementation("redis.clients:jedis:6.2.0")
 	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.apache.kafka:kafka-clients:3.7.0")
+
+	implementation("org.springframework.boot:spring-boot-starter-websocket")
 
 }
 
