@@ -107,6 +107,12 @@ public class PollController {
         ));
     }
 
+    //Test
+    @GetMapping("/{id}/results")
+    public Map<String, Integer> getPollResults(@PathVariable("id") Integer pollId) {
+        return pollService.getPollResults(pollId);
+    }
+
     @PutMapping("/{id}")
     public Poll updatePoll(@PathVariable Integer id, @RequestParam Optional<Integer> durationDays, @RequestParam Integer userId, @RequestParam(required = false) List<Integer> newInvites) {
         if (newInvites == null) {
