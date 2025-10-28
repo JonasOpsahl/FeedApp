@@ -107,6 +107,7 @@ public class PollController {
         ));
     }
 
+    //Test
     @GetMapping("/{id}/results")
     public Map<String, Integer> getPollResults(@PathVariable("id") Integer pollId) {
         return pollService.getPollResults(pollId);
