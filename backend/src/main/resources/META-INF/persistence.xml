@@ -16,7 +16,7 @@
             <property name="hibernate.connection.driver_class" value="org.h2.Driver"/>
             <property name="hibernate.connection.url" value="jdbc:h2:file:./pollingDB;DB_CLOSE_DELAY=-1"/>
             
-            <property name="hibernate.connection.pool_size" value="1"/>
+            <property name="hibernate.connection.pool_size" value="20"/>
             <property name="hibernate.show_sql" value="true"/>
             <property name="hibernate.format_sql" value="true"/>
             <property name="hibernate.hbm2ddl.auto" value="create"/>
