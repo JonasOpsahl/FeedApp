@@ -11,6 +11,7 @@ node {
 }
 
 tasks.register<NpmTask>("runBuild") {
+    dependsOn("npmInstall")
     args = listOf("run", "build")
     workingDir = file(".")
 }
