@@ -27,43 +27,35 @@ function App() {
         console.error("Failed to load polls:", err);
       });
   };
+  
+   useEffect(() => {
+    refreshPolls();
+  }, [currentUser?.id]);
+
 
     // WebSocket: connect and subscribe once
-    useEffect(() => {
-      connectWs();
-      const off = onWs((msg) => {
-        if (typeof msg === "string") {
-          setWsMessages((prev) => [msg, ...prev].slice(0, 25));
-          if (msg === "pollsUpdated") refreshPolls();
-          if (msg === "votesUpdated") refreshPolls();
-          return;
-        }
-        const e = msg as WsEvent;
-        if (e.type === "poll-created" || e.type === "poll-deleted") {
-          setWsMessages((p) => [`${e.type} #${e.pollId}`, ...p].slice(0, 25));
-          refreshPolls();
-        } else if (e.type === "vote-delta") {
-          setWsMessages((p) => [
-            `vote-delta poll=${e.pollId} optionOrder=${e.optionOrder}`,
-            ...p
-          ].slice(0, 25));
+  
+  useEffect(() => {
+    connectWs();
+    const off = onWs((msg) => {
+      if (typeof msg === "string") {
+        setWsMessages((prev) => [msg, ...prev].slice(0, 25));
+        if (msg === "pollsUpdated") refreshPolls();
+        return;
+      }
+      const e = msg as WsEvent;
+      if (e.type === "poll-created" || e.type === "poll-deleted") {
+        refreshPolls();
+      } else if (e.type === "vote-delta") {
+        setWsMessages((p) => [
+          `vote-delta poll=${e.pollId} optionOrder=${e.optionOrder}`,
+          ...p
+        ].slice(0, 25));
 
-          try {
-            window.dispatchEvent(new CustomEvent("vote-delta", {
-              detail: { pollId: Number(e.pollId), optionOrder: Number(e.optionOrder) }
-            }));
-          } catch (err) {
-            console.warn("Failed to dispatch vote-delta event", err);
-          }
-
-          // keep refreshing list
-          refreshPolls();
-        }
-      });
-      return () => {
-        if (typeof off === "function") off();
-      };
-    }, []);
+      }
+    });
+    return () => { if (typeof off === "function") off(); };
+  }, []);
 
   const handlePollCreated = () => {
     refreshPolls();

@@ -87,23 +87,19 @@ public class PollController {
     @PostMapping("/{id}/vote")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void castVote(@PathVariable("id") Integer pollId,
-                     @RequestParam Integer presentationOrder,
-                     @RequestParam(required = false) Optional<Integer> userId) {
+                         @RequestParam Integer presentationOrder,
+                         @RequestParam(required = false) Optional<Integer> userId) {
+
         Map<String, Object> voteData = new HashMap<>();
         voteData.put("pollId", pollId);
+        voteData.put("optionOrder", presentationOrder);
         voteData.put("presentationOrder", presentationOrder);
-        voteData.put("userId", userId.orElse(null));
-
+        userId.ifPresentOrElse(u -> voteData.put("userId", u), () -> voteData.put("userId", null));
         producerService.sendEvent(voteData);
-
-        // WebSocket: optimistic vote delta + legacy ping
-        RawWebSocketServer.broadcast("votesUpdated");
         RawWebSocketServer.broadcastJson(Map.of(
             "type", "vote-delta",
             "pollId", pollId,
-            "optionOrder", presentationOrder,
-            "voterUserId", userId.orElse(null),
-            "ts", System.currentTimeMillis()
+            "optionOrder", presentationOrder
         ));
     }
 
