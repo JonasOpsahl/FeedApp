@@ -65,6 +65,8 @@
   border: 1px solid var(--border);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+  padding: var(--spacing-lg);
+  box-sizing: border-box;
 }
 
 .tabContainer {
@@ -241,4 +243,43 @@
   font-weight: 600;
   color: var(--success);
   margin-top: var(--spacing-lg);
+}
+
+.wsPanel {             
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: calc(var(--radius-lg) - 2px); 
+  padding: var(--spacing-md);
+  margin: 0 0 var(--spacing-lg) 0;          
+  background: linear-gradient(90deg, #1f2a38, #242a30);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #cde8ff;
+  overflow: hidden;                         
+}
+
+.wsTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #5bd1ff;
+  margin: 0 0 8px 0;
+}
+
+.wsChipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.wsChip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.07);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;               
 }
