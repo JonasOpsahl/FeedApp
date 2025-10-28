@@ -1,4 +1,4 @@
-import { useState, type FC, type FormEvent, useEffect } from "react";
+import { useState, type FC, type FormEvent, useEffect} from "react";
 import styles from "../App.module.css";
 import type { Poll as PollData } from "../api";
 import { useAuth } from "../Auth";
@@ -17,36 +17,121 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
   const [hasVoted, setHasVoted] = useState(false);
   const [results, setResults] = useState<Record<string, number>>({});
 
+
   const loadResults = async () => {
     try {
       const pollResults = await getPollResults(pollData.pollId);
-      setResults(pollResults);
+
+      const normalized: Record<string, number> = {};
+      for (const opt of pollData.pollOptions) {
+        normalized[opt.caption] = pollResults[opt.caption] ?? 0;
+      }
+      for (const k of Object.keys(pollResults)) {
+        if (!(k in normalized)) normalized[k] = pollResults[k];
+      }
+
+      setResults(normalized);
     } catch (error) {
       console.error("Could not fetch poll results", error);
     }
   };
-  
+
   useEffect(() => {
     void loadResults();
   }, [pollData.pollId]);
 
-  // Subscribe to WebSocket for this poll
+  // Subscribe to WebSocket for this poll and update results
   useEffect(() => {
     connectWs();
     const off = onWs((msg) => {
-      if (typeof msg === "string") {
-        if (msg === "votesUpdated") void loadResults();
-        return;
-      }
-      if (msg.type === "vote-delta" && Number(msg.pollId) === Number(pollData.pollId)) {
+      try {
+        // plain string messages (legacy)
+        if (typeof msg === "string") {
+          if (msg === "votesUpdated") {
+            void loadResults();
+            return;
+          }
+          if (msg.startsWith("vote-delta")) {
+            const pollMatch = msg.match(/poll=(\d+)/);
+            const orderMatch = msg.match(/optionOrder=(\d+)/) || msg.match(/optionOrder=(\d+)/i);
+            const pollIdNum = pollMatch ? Number(pollMatch[1]) : undefined;
+            const optionOrderNum = orderMatch ? Number(orderMatch[1]) : undefined;
+
+            if (pollIdNum === pollData.pollId && optionOrderNum != null) {
+              const opt = pollData.pollOptions.find((o) => o.presentationOrder === optionOrderNum);
+              if (opt) {
+                setResults((prev) => {
+                  const next = { ...prev };
+                  next[opt.caption] = (next[opt.caption] || 0) + 1;
+                  return next;
+                });
+              } else {
+                // unknown option -> reload data
+                void loadResults();
+              }
+            }
+            return;
+          }
+        }
+
+        const payload = typeof msg === "string" ? JSON.parse(msg) : msg;
+        if (!payload) return;
+
+        if (payload.type === "vote-delta") {
+          const pollIdNum = Number(payload.pollId ?? payload.poll ?? payload.poll_id);
+          const optionOrderNum = Number(payload.optionOrder ?? payload.option_order ?? payload.option);
+
+          if (pollIdNum === pollData.pollId && !Number.isNaN(optionOrderNum)) {
+            const opt = pollData.pollOptions.find((o) => o.presentationOrder === optionOrderNum);
+            if (opt) {
+              setResults((prev) => {
+                const next = { ...prev };
+                next[opt.caption] = (next[opt.caption] || 0) + 1;
+                return next;
+              });
+            } else {
+              void loadResults();
+            }
+          }
+        }
+      } catch (e) {
         void loadResults();
       }
     });
     return () => {
-      // call unsubscribe and ignore its return value so cleanup returns void
       off();
     };
   }, [pollData.pollId]);
+
+  // Listen for App-level vote-delta events
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      try {
+        const ce = ev as CustomEvent<{ pollId: number; optionOrder: number }>;
+        const { pollId, optionOrder } = ce.detail ?? {};
+        if (pollId !== pollData.pollId) return;
+
+        const opt = pollData.pollOptions.find((o) => o.presentationOrder === Number(optionOrder));
+        if (!opt) {
+          void loadResults();
+          return;
+        }
+
+        setResults((prev) => {
+          const next = { ...prev };
+          next[opt.caption] = (next[opt.caption] || 0) + 1;
+          return next;
+        });
+      } catch {
+        void loadResults();
+      }
+    };
+
+    window.addEventListener("vote-delta", handler as EventListener);
+    return () => {
+      window.removeEventListener("vote-delta", handler as EventListener);
+    };
+  }, [pollData.pollId, pollData.pollOptions]);
 
 
   const handleSelectionChange = (optionCaption: string) => {
@@ -80,7 +165,7 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
         );
 
         if (!optionToVote) {
-          throw new Error(`Option ${optionCaption} not found`); // Needed to make sure that optionToVote is actually present
+          throw new Error(`Option ${optionCaption} not found`);
         }
 
         return castVote(
@@ -92,8 +177,34 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
 
       await Promise.all(votePromises);
       setHasVoted(true);
+
+      // optimistic: increment locally so UI updates instantly (in case ws message is delayed)
+      setResults((prev) => {
+        const next = { ...prev };
+        for (const caption of selectedOptions) {
+          next[caption] = (next[caption] || 0) + 1;
+        }
+        return next;
+      });
+
+      // dispatch local vote-delta events so this tab updates the same way as others
+      for (const caption of selectedOptions) {
+        const opt = pollData.pollOptions.find((o) => o.caption === caption);
+        if (opt) {
+          try {
+            window.dispatchEvent(new CustomEvent("vote-delta", {
+              detail: { pollId: Number(pollData.pollId), optionOrder: Number(opt.presentationOrder) }
+            }));
+          } catch {
+          }
+        }
+      }
+
       const updatedResults = await getPollResults(pollData.pollId);
-      setResults(updatedResults);
+      const normalized: Record<string, number> = {};
+      for (const opt of pollData.pollOptions) normalized[opt.caption] = updatedResults[opt.caption] ?? 0;
+      for (const k of Object.keys(updatedResults)) if (!(k in normalized)) normalized[k] = updatedResults[k];
+      setResults(normalized);
 
     } catch (error) {
       console.error(error);
@@ -144,11 +255,10 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
               <label
                 key={index}
                 onClick={() => handleSelectionChange(option.caption)}
-                className={`${styles.voteOption} ${
-                  selectedOptions.includes(option.caption)
-                    ? styles.voteOptionSelected
-                    : ""
-                }`}
+                className={`${styles.voteOption} ${selectedOptions.includes(option.caption)
+                  ? styles.voteOptionSelected
+                  : ""
+                  }`}
               >
                 <input
                   type={pollData.maxVotesPerUser > 1 ? "checkbox" : "radio"}
