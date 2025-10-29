@@ -19,14 +19,8 @@ public class ProducerService {
         this.pollTopicManager = pollTopicManager;
     }
 
-    public void sendEvent(Map<String, Object> voteData) {
-        Integer pollId = (Integer) voteData.get("pollId");
-        String topicName = pollTopicManager.getTopicNameForPoll(pollId);
-        
-        logger.info("Sending event to topic" + topicName);
-        kafkaTemplate.send(topicName, voteData);
-
-
-
+    public void sendEvent(String topicName, Map<String, Object> data) {
+        logger.info("Sending event to topic " + topicName);
+        kafkaTemplate.send(topicName, data);
     }
 }

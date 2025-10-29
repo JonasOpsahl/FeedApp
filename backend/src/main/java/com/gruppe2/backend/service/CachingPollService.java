@@ -60,12 +60,7 @@ public class CachingPollService implements PollService {
 
     @Override
     public boolean castVote(Integer pollId, Optional<Integer> userId, Integer presentationOrder) {
-        boolean success = delegate.castVote(pollId, userId, presentationOrder);
-        if (success) {
-            System.out.println("Vote cast for poll " + pollId + ", invalidating cache.");
-            jedis.del(getPollCacheKey(pollId));
-        }
-        return success;
+        return delegate.castVote(pollId, userId, presentationOrder);
     }
 
     @Override
@@ -76,6 +71,12 @@ public class CachingPollService implements PollService {
             jedis.del(getPollCacheKey(pollId));
         }
         return success;
+    }
+
+    @Override
+    public void invalidatePollCache(Integer pollId) {
+        System.out.println("Vote change detected for poll " + pollId + ", invalidating cache.");
+        jedis.del(getPollCacheKey(pollId));
     }
 
     // All handled by database and not cache

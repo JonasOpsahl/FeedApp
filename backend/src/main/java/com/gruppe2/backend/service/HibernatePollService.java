@@ -1,21 +1,15 @@
 package com.gruppe2.backend.service;
 
+import com.gruppe2.backend.model.*;
 import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
+
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-
-import com.gruppe2.backend.model.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -23,340 +17,259 @@ import java.util.stream.Stream;
 @Profile("database")
 public class HibernatePollService implements PollService {
 
-    private final EntityManagerFactory emf;
-    private final PollTopicManager pollTopicManager;
+    private EntityManager em;
 
-    public HibernatePollService(EntityManagerFactory emf, PollTopicManager pollTopicManager) {
-        this.emf = emf;
+    private final PollTopicManager pollTopicManager;
+    private final ProducerService producerService;
+
+    public HibernatePollService(EntityManager em, PollTopicManager pollTopicManager, ProducerService producerService) {
+        this.em = em;
         this.pollTopicManager = pollTopicManager;
+        this.producerService = producerService;
     }
 
     // Users
 
     @Override
+    @Transactional
     public User createUser(String username, String email, String password) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            User newUser = new User();
-            newUser.setUsername(username);
-            newUser.setEmail(email);
-            newUser.setPassword(password);
-            em.persist(newUser);
-            em.getTransaction().commit();
-            return newUser;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not create user", e);
-        } finally {
-            em.close();
-        }
+        User newUser = new User();
+        newUser.setUsername(username);
+        newUser.setEmail(email);
+        newUser.setPassword(password);
+        em.persist(newUser);
+        em.flush();
+        return newUser;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<User> getUsers() {
-        EntityManager em = emf.createEntityManager();
-        try {
-            return em.createQuery("SELECT u FROM User u", User.class).getResultList();
-        } finally {
-            em.close();
-        }
+        return em.createQuery("SELECT u FROM User u", User.class).getResultList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public User getUser(Integer userId) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            return em.find(User.class, userId);
-        } finally {
-            em.close();
-        }
+        return em.find(User.class, userId);
     }
 
     @Override
+    @Transactional
     public User updateUser(Integer userId, Optional<String> newUsername, Optional<String> newEmail, Optional<String> newPassword) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            User toChange = em.find(User.class, userId);
-            if (toChange != null) {
-                newUsername.ifPresent(toChange::setUsername);
-                newEmail.ifPresent(toChange::setEmail);
-                newPassword.ifPresent(toChange::setPassword);
-            }
-            em.getTransaction().commit();
-            return toChange;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not update user", e);
-        } finally {
-            em.close();
+        User toChange = em.find(User.class, userId);
+        if (toChange != null) {
+            newUsername.ifPresent(toChange::setUsername);
+            newEmail.ifPresent(toChange::setEmail);
+            newPassword.ifPresent(toChange::setPassword);
         }
+        return toChange;
     }
 
     @Override
+    @Transactional
     public boolean deleteUser(Integer id) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            User toDelete = em.find(User.class, id);
-            if (toDelete != null) {
-                em.remove(toDelete);
-            }
-            em.getTransaction().commit();
-            return toDelete != null;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not delete user", e);
-        } finally {
-            em.close();
+        User toDelete = em.find(User.class, id);
+        if (toDelete != null) {
+            em.remove(toDelete);
+            return true;
         }
+        return false;
     }
 
     // Polls
 
     @Override
+    @Transactional
     public Poll createPoll(String question, Integer durationDays, Integer creatorId,
                         Poll.Visibility visibility,
                         Optional<Integer> maxVotesPerUser,
                         List<Integer> invitedUsers, List<VoteOption> pollOptions) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            
-            User creator = em.find(User.class, creatorId);
-            if (creator == null) {
-                throw new IllegalArgumentException("User with ID " + creatorId + " doesnt exist.");
-            }
-
-            Poll newPoll = new Poll();
-            newPoll.setQuestion(question);
-            newPoll.setCreator(creator);
-            newPoll.setVisibility(visibility);
-            newPoll.setPublishedAt(Instant.now());
-            newPoll.setMaxVotesPerUser(maxVotesPerUser.orElse(1));
-
-            newPoll.setDurationDays(durationDays);
-            newPoll.setValidUntil(Instant.now().plus(Duration.ofDays(durationDays)));
-
-            if (visibility == Poll.Visibility.PRIVATE) {
-                invitedUsers.add(creator.getUserId());
-                newPoll.setInvitedUsers(invitedUsers.stream().distinct().toList());
-            } else {
-                newPoll.setInvitedUsers(new ArrayList<>());
-            }
-
-            for (VoteOption option : pollOptions) {
-                option.setPoll(newPoll);
-            }
-            newPoll.setPollOptions(pollOptions);
-
-            em.persist(newPoll);
-            em.getTransaction().commit();
-
-            if (newPoll.getPollId() != null) {
-                pollTopicManager.createPollTopic(newPoll.getPollId());
-            }
-
-            return newPoll;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not create poll", e);
-        } finally {
-            em.close();
+        
+        User creator = em.find(User.class, creatorId);
+        if (creator == null) {
+            throw new IllegalArgumentException("User with ID " + creatorId + " does not exist.");
         }
+
+        Poll newPoll = new Poll();
+        newPoll.setQuestion(question);
+        newPoll.setCreator(creator);
+        newPoll.setVisibility(visibility);
+        newPoll.setPublishedAt(Instant.now());
+        newPoll.setMaxVotesPerUser(maxVotesPerUser.orElse(1));
+        newPoll.setDurationDays(durationDays);
+        newPoll.setValidUntil(Instant.now().plus(Duration.ofDays(durationDays)));
+
+        if (visibility == Poll.Visibility.PRIVATE) {
+            invitedUsers.add(creator.getUserId());
+            newPoll.setInvitedUsers(invitedUsers.stream().distinct().toList());
+        } else {
+            newPoll.setInvitedUsers(new ArrayList<>());
+        }
+
+        for (VoteOption option : pollOptions) {
+            option.setPoll(newPoll);
+        }
+        newPoll.setPollOptions(pollOptions);
+
+        em.persist(newPoll);
+        em.flush();
+
+        return newPoll;
     }
 
-
     @Override
+    @Transactional(readOnly = true)
     public List<Poll> getPolls(Optional<Integer> userId) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            List<Poll> allPolls = em.createQuery("SELECT p FROM Poll p", Poll.class).getResultList();
+        List<Poll> allPolls = em.createQuery("SELECT p FROM Poll p", Poll.class).getResultList();
 
-            List<Poll> visiblePolls;
-            if (userId.isEmpty()) {
-                visiblePolls = allPolls.stream()
-                    .filter(poll -> poll.getVisibility() == Poll.Visibility.PUBLIC)
-                    .collect(Collectors.toList());
-            } else {
-                Integer id = userId.get();
-                visiblePolls = allPolls.stream()
-                    .filter(poll -> 
-                        poll.getVisibility() == Poll.Visibility.PUBLIC ||
-                        poll.getCreator().getUserId().equals(id) ||
-                        (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(id))
-                    )
-                    .collect(Collectors.toList());
-            }
-
-            for (Poll poll : visiblePolls) {
-                poll.getPollOptions().size();
-            }
-
-            return visiblePolls;
-
-        } finally {
-            em.close();
+        Stream<Poll> visiblePollsStream;
+        if (userId.isEmpty()) {
+            visiblePollsStream = allPolls.stream()
+                .filter(poll -> poll.getVisibility() == Poll.Visibility.PUBLIC);
+        } else {
+            Integer id = userId.get();
+            visiblePollsStream = allPolls.stream()
+                .filter(poll ->
+                    poll.getVisibility() == Poll.Visibility.PUBLIC ||
+                    poll.getCreator().getUserId().equals(id) ||
+                    (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(id))
+                );
         }
+
+        List<Poll> visiblePolls = visiblePollsStream.collect(Collectors.toList());
+        visiblePolls.forEach(poll -> poll.getPollOptions().size());
+        return visiblePolls;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Poll getPoll(Integer pollId, Integer userId) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            Poll poll = em.find(Poll.class, pollId);
-            if (poll == null) {
-                return null;
-            }
-            if (poll.getVisibility() == Poll.Visibility.PUBLIC || 
-               (poll.getCreator().getUserId().equals(userId)) || 
-               (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(userId))) {
-                return poll;
-            }
+        Poll poll = em.find(Poll.class, pollId);
+        if (poll == null) {
             return null;
-        } finally {
-            em.close();
         }
+        
+        if (poll.getVisibility() == Poll.Visibility.PUBLIC ||
+           (poll.getCreator() != null && poll.getCreator().getUserId().equals(userId)) ||
+           (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(userId))) {
+            return poll;
+        }
+        return null;
     }
     
     @Override
+    @Transactional
     public Poll updatePoll(Optional<Integer> durationDays, Integer pollId, Integer userId, List<Integer> newInvites) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            Poll toUpdate = em.find(Poll.class, pollId);
+        Poll toUpdate = em.find(Poll.class, pollId);
 
-            if (toUpdate == null || !toUpdate.getCreator().getUserId().equals(userId)) {
-                em.getTransaction().rollback();
-                return null; 
-            }
-
-            if (newInvites != null && !newInvites.isEmpty()) {
-                List<Integer> currentInvites = toUpdate.getInvitedUsers();
-                List<Integer> allInvites = Stream.concat(currentInvites.stream(), newInvites.stream())
-                                                 .distinct()
-                                                 .collect(Collectors.toList());
-                toUpdate.setInvitedUsers(allInvites);
-            }
-
-            durationDays.ifPresent(days -> {
-                Instant newDeadline = toUpdate.getValidUntil().plus(Duration.ofDays(days));
-                toUpdate.setValidUntil(newDeadline);
-            });
-
-            em.getTransaction().commit();
-            return toUpdate;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not update poll", e);
-        } finally {
-            em.close();
+        if (toUpdate == null || !toUpdate.getCreator().getUserId().equals(userId)) {
+            return null;
         }
+
+        if (newInvites != null && !newInvites.isEmpty()) {
+            List<Integer> allInvites = Stream.concat(toUpdate.getInvitedUsers().stream(), newInvites.stream())
+                                             .distinct()
+                                             .collect(Collectors.toList());
+            toUpdate.setInvitedUsers(allInvites);
+        }
+
+        durationDays.ifPresent(days -> {
+            Instant newDeadline = toUpdate.getValidUntil().plus(Duration.ofDays(days));
+            toUpdate.setValidUntil(newDeadline);
+        });
+
+        return toUpdate;
     }
 
-
     @Override
+    @Transactional
     public boolean deletePoll(Integer pollId) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-            Poll pollToDelete = em.find(Poll.class, pollId);
-            if (pollToDelete != null) {
-                em.remove(pollToDelete);
-            }
-            em.getTransaction().commit();
-            return pollToDelete != null;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not delete poll", e);
-        } finally {
-            em.close();
+        Poll pollToDelete = em.find(Poll.class, pollId);
+        if (pollToDelete != null) {
+            em.remove(pollToDelete);
+            return true;
         }
+        return false;
     }
     
     @Override
+    @Transactional
     public boolean castVote(Integer pollId, Optional<Integer> userId, Integer presentationOrder) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-
-            Poll poll = em.find(Poll.class, pollId);
-            if (poll == null || Instant.now().isAfter(poll.getValidUntil())) {
-                em.getTransaction().rollback();
-                return false; 
-            }
-
-            VoteOptionId optionId = new VoteOptionId(pollId, presentationOrder);
-            VoteOption chosenOption = em.find(VoteOption.class, optionId);
-            if (chosenOption == null) {
-                em.getTransaction().rollback();
-                return false;
-            }
-
-            User voter = userId.map(id -> em.find(User.class, id)).orElse(null);
-            if (userId.isPresent() && voter == null) {
-                em.getTransaction().rollback();
-                return false;
-            }
-
-            if (voter != null) {
-                 if (poll.getVisibility() == Poll.Visibility.PRIVATE && !poll.getInvitedUsers().contains(voter.getUserId())) {
-                    em.getTransaction().rollback();
-                    return false;
-                }
-                long userVoteCount = em.createQuery("SELECT COUNT(v) FROM Vote v WHERE v.voter = :voter AND v.chosenOption.poll = :poll", Long.class)
-                                       .setParameter("voter", voter)
-                                       .setParameter("poll", poll)
-                                       .getSingleResult();
-                if (userVoteCount >= poll.getMaxVotesPerUser()) {
-                    em.getTransaction().rollback();
-                    return false; 
-                }
-            }
-
-            Vote newVote = new Vote();
-            newVote.setVoter(voter);
-            newVote.setPublishedAt(Instant.now());
-            newVote.setChosenOption(chosenOption);
-            em.persist(newVote);
-
-            em.getTransaction().commit();
-            return true;
-        } catch (Exception e) {
-            if (em.getTransaction().isActive()) em.getTransaction().rollback();
-            throw new RuntimeException("Could not cast vote", e);
-        } finally {
-            em.close();
+        Poll poll = em.find(Poll.class, pollId);
+        if (poll == null || Instant.now().isAfter(poll.getValidUntil())) {
+            return false;
         }
-    }
 
-    @Override
-    public Map<String, Integer> getPollResults(Integer pollId) {
-        EntityManager em = emf.createEntityManager();
-        try {
-            List<Object[]> results = em.createQuery(
-                "SELECT vo.caption, COUNT(v.id) FROM Vote v JOIN v.chosenOption vo WHERE vo.poll.id = :pollId GROUP BY vo.caption", Object[].class)
-                .setParameter("pollId", pollId)
+        VoteOptionId optionId = new VoteOptionId(pollId, presentationOrder);
+        VoteOption chosenOption = em.find(VoteOption.class, optionId);
+        if (chosenOption == null) {
+            return false;
+        }
+
+        User voter = userId.map(id -> em.find(User.class, id)).orElse(null);
+        if (userId.isPresent() && voter == null) {
+            return false;
+        }
+
+        if (voter != null) {
+            if (poll.getVisibility() == Poll.Visibility.PRIVATE && !poll.getInvitedUsers().contains(voter.getUserId())) {
+                return false;
+            }
+
+            List<Vote> existingVotes = em.createQuery(
+                    "SELECT v FROM Vote v WHERE v.voter = :voter AND v.chosenOption.poll = :poll", Vote.class)
+                .setParameter("voter", voter)
+                .setParameter("poll", poll)
                 .getResultList();
-            
-            Map<String, Integer> resultMap = new HashMap<>();
-            for (Object[] result : results) {
-                resultMap.put((String) result[0], ((Long) result[1]).intValue());
+
+            if (poll.getMaxVotesPerUser() == 1) {
+                if (!existingVotes.isEmpty()) {
+                    em.remove(existingVotes.get(0));
+                }
+            } else {
+                if (existingVotes.size() >= poll.getMaxVotesPerUser()) {
+                    throw new IllegalStateException("Vote limit reached for this poll.");
+                }
             }
-            return resultMap;
-        } finally {
-            em.close();
         }
+
+        Vote newVote = new Vote();
+        newVote.setVoter(voter);
+        newVote.setPublishedAt(Instant.now());
+        newVote.setChosenOption(chosenOption);
+        em.persist(newVote);
+
+        System.out.println("Vote saved to DB. Publishing Kafka event for pollId: " + pollId);
+        Map<String, Object> eventData = new HashMap<>();
+        eventData.put("pollId", pollId);
+
+        String topicName = pollTopicManager.getTopicNameForPoll(pollId);
+
+        producerService.sendEvent(topicName, eventData);
+        return true;
     }
 
     @Override
-    public void loginUser(Integer userId) {
+    @Transactional(readOnly = true)
+    public Map<String, Integer> getPollResults(Integer pollId) {
+        List<Object[]> results = em.createQuery(
+            "SELECT vo.caption, COUNT(v.id) FROM Vote v JOIN v.chosenOption vo WHERE vo.poll.id = :pollId GROUP BY vo.caption", Object[].class)
+            .setParameter("pollId", pollId)
+            .getResultList();
+        
+        Map<String, Integer> resultMap = new HashMap<>();
+        for (Object[] result : results) {
+            resultMap.put((String) result[0], ((Long) result[1]).intValue());
+        }
+        return resultMap;
     }
 
     @Override
-    public void logoutUser(Integer userId) {
-    }
+    public void loginUser(Integer userId) {}
+
+    @Override
+    public void logoutUser(Integer userId) {}
 
     @Override
     public boolean isUserLoggedIn(Integer userId) {
@@ -366,5 +279,11 @@ public class HibernatePollService implements PollService {
     @Override
     public Set<String> getLoggedInUsers() {
         return new HashSet<>();
+    }
+
+    @Override
+    public void invalidatePollCache(Integer pollId) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'invalidatePollCache'");
     }
 }

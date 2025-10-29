@@ -28,6 +28,7 @@ public interface PollService {
     void logoutUser(Integer userId);
     boolean isUserLoggedIn(Integer userId);
     Set<String> getLoggedInUsers();
+    void invalidatePollCache(Integer pollId);
 
     
 }

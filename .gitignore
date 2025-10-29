@@ -4,7 +4,6 @@ build/
 
 # Node.js dependencies (if applicable)
 node_modules/
-dist
 dist-ssr
 *.local
 
