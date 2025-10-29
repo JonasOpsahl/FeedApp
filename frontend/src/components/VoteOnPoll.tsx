@@ -4,6 +4,8 @@ import type { Poll as PollData } from "../api";
 import { useAuth } from "../Auth";
 import { castVote, getPollResults } from "../api";
 import { onWs } from "../ws";
+import confetti from "canvas-confetti"; 
+
 
 interface VoteOnPollProps {
   pollData: PollData;
@@ -14,6 +16,33 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Confetti helper function
+  const fireConfetti = () => {
+    const duration = 900;
+    const end = Date.now() + duration;
+    const colors = ["#14b8a6", "#4ade80", "#60a5fa", "#facc15", "#f87171"];
+
+    (function frame() {
+      confetti({
+        particleCount: 6,
+        angle: 60,
+        spread: 70,
+        origin: { x: 0, y: 0.7 },
+        colors,
+        zIndex: 10000,
+      });
+      confetti({
+        particleCount: 6,
+        angle: 120,
+        spread: 70,
+        origin: { x: 1, y: 0.7 },
+        colors,
+        zIndex: 10000,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  };
 
   const loadResults = async () => {
     try {
