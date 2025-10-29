@@ -12,8 +12,8 @@ interface VoteOnPollProps {
 const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
   const { currentUser } = useAuth();
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
-  const [hasVoted, setHasVoted] = useState(false);
   const [results, setResults] = useState<Record<string, number>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadResults = async () => {
     try {
@@ -37,52 +37,16 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
     void loadResults();
   }, [pollData.pollId]);
 
-  // Subscribe to WebSocket messages and apply deltas immediately
-   useEffect(() => {
+  useEffect(() => {
     const off = onWs((msg) => {
       try {
-        if (typeof msg === "string") {
-          if (msg.startsWith("vote-delta")) {
-            const pollMatch = msg.match(/poll=(\d+)/);
-            const orderMatch = msg.match(/optionOrder=(\d+)/i);
-            const pollIdNum = pollMatch ? Number(pollMatch[1]) : undefined;
-            const optionOrderNum = orderMatch ? Number(orderMatch[1]) : undefined;
+        if (typeof msg !== "object" || msg === null) return;
 
-            if (pollIdNum === pollData.pollId && optionOrderNum != null) {
-              const opt = pollData.pollOptions.find(
-                (o) => o.presentationOrder === optionOrderNum
-              );
-              if (opt) {
-                setResults((prev) => ({
-                  ...prev,
-                  [opt.caption]: (prev[opt.caption] || 0) + 1,
-                }));
-              } else {
-                void loadResults();
-              }
-            }
-          }
-          return;
-        }
-
-
-       const payload = msg as any;
+        const payload = msg as any;
         if (payload?.type === "vote-delta") {
-          const pollIdNum = Number(payload.pollId ?? payload.poll ?? payload.poll_id);
-          const optionOrderNum = Number(payload.optionOrder ?? payload.option_order ?? payload.option);
-
-          if (pollIdNum === pollData.pollId && !Number.isNaN(optionOrderNum)) {
-            const opt = pollData.pollOptions.find(
-              (o) => o.presentationOrder === optionOrderNum
-            );
-            if (opt) {
-              setResults((prev) => ({
-                ...prev,
-                [opt.caption]: (prev[opt.caption] || 0) + 1,
-              }));
-            } else {
-              void loadResults();
-            }
+          const pollIdNum = Number(payload.pollId);
+          if (pollIdNum === pollData.pollId) {
+            void loadResults();
           }
         }
       } catch {
@@ -90,56 +54,59 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
       }
     });
 
-    return () => { off(); };
-  }, [pollData.pollId, pollData.pollOptions]);
+    return () => {
+      off();
+    };
+  }, [pollData.pollId]);
 
   const handleSelectionChange = (optionCaption: string) => {
     setSelectedOptions((prev) => {
       if (pollData.maxVotesPerUser > 1) {
-     
         if (prev.includes(optionCaption)) {
           return prev.filter((c) => c !== optionCaption);
         }
         if (prev.length < pollData.maxVotesPerUser) {
           return [...prev, optionCaption];
         }
-        return prev; 
+        return prev;
       } else {
-      
         return [optionCaption];
       }
     });
   };
 
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-
     if (selectedOptions.length === 0) {
       alert("Please select at least one option to vote");
       return;
     }
-
+    setIsSubmitting(true);
     try {
-      // Post all votes; let WS delta update UI
       const votePromises = selectedOptions.map((caption) => {
-        const optionToVote = pollData.pollOptions.find((opt) => opt.caption === caption);
+        const optionToVote = pollData.pollOptions.find(
+          (opt) => opt.caption === caption
+        );
         if (!optionToVote) throw new Error(`Option ${caption} not found`);
-        return castVote(pollData.pollId, optionToVote.presentationOrder, currentUser?.id);
+        return castVote(
+          pollData.pollId,
+          optionToVote.presentationOrder,
+          currentUser?.id
+        );
       });
-
       await Promise.all(votePromises);
-      setHasVoted(true);
-
-   
-      setTimeout(() => void loadResults(), 1000);
     } catch (error) {
       console.error(error);
       alert("Failed to submit vote");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const totalVotes = Object.values(results).reduce((sum, count) => sum + count, 0);
+  const totalVotes = Object.values(results).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   return (
     <div className={styles.pollCard}>
@@ -148,8 +115,8 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
       <div className={styles.optionsList}>
         {pollData.pollOptions.map((option, index) => {
           const voteCount = results[option.caption] || 0;
-          const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
-
+          const percentage =
+            totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
           return (
             <div key={index} className={styles.voteResultRow}>
               <div className={styles.voteOptionLabel}>
@@ -169,37 +136,39 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
         })}
       </div>
 
-      {!hasVoted ? (
-        <form onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
-          <p>
-            <strong>Your Vote:</strong>
-          </p>
-          {pollData.pollOptions.map((option, index) => (
-            <label
-              key={index}
-              onClick={() => handleSelectionChange(option.caption)}
-              className={`${styles.voteOption} ${
-                selectedOptions.includes(option.caption) ? styles.voteOptionSelected : ""
-              }`}
-            >
-              <input
-                type={pollData.maxVotesPerUser > 1 ? "checkbox" : "radio"}
-                name={`pollOption-${pollData.pollId}`}
-                value={option.caption}
-                checked={selectedOptions.includes(option.caption)}
-                onChange={() => handleSelectionChange(option.caption)}
-                className={styles.hiddenInput}
-              />
-              {option.caption}
-            </label>
-          ))}
-          <button type="submit" className={styles.submitButton} style={{ marginTop: "20px" }}>
-            Submit Vote
-          </button>
-        </form>
-      ) : (
-        <p className={styles.votedMessage}>Vote submitted</p>
-      )}
+      <form onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
+        <p>
+          <strong>Your Vote:</strong>
+        </p>
+        {pollData.pollOptions.map((option) => (
+          <label
+            key={option.presentationOrder}
+            className={`${styles.voteOption} ${
+              selectedOptions.includes(option.caption)
+                ? styles.voteOptionSelected
+                : ""
+            }`}
+          >
+            <input
+              type={pollData.maxVotesPerUser > 1 ? "checkbox" : "radio"}
+              name={`pollOption-${pollData.pollId}`}
+              value={option.caption}
+              checked={selectedOptions.includes(option.caption)}
+              onChange={() => handleSelectionChange(option.caption)}
+              className={styles.hiddenInput}
+            />
+            {option.caption}
+          </label>
+        ))}
+        <button
+          type="submit"
+          className={styles.submitButton}
+          style={{ marginTop: "20px" }}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Submitting..." : "Submit Vote"}
+        </button>
+      </form>
     </div>
   );
 };

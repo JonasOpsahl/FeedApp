@@ -319,4 +319,10 @@ public class InMemoryPollService implements PollService{
         return new HashSet<>();
     }
 
+    @Override
+    public void invalidatePollCache(Integer pollId) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'invalidatePollCache'");
+    }
+
 }

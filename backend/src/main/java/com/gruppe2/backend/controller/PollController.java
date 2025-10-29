@@ -8,7 +8,6 @@ import com.gruppe2.backend.service.PollService;
 import com.gruppe2.backend.service.ProducerService;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import com.gruppe2.backend.config.RawWebSocketServer;
 import java.util.Map;
@@ -85,22 +84,20 @@ public class PollController {
     }
 
     @PostMapping("/{id}/vote")
-    @ResponseStatus(HttpStatus.ACCEPTED)
+    @ResponseStatus(HttpStatus.OK)
     public void castVote(@PathVariable("id") Integer pollId,
-                         @RequestParam Integer presentationOrder,
-                         @RequestParam(required = false) Optional<Integer> userId) {
+                        @RequestParam Integer presentationOrder,
+                        @RequestParam(required = false) Optional<Integer> userId) {
 
-        Map<String, Object> voteData = new HashMap<>();
-        voteData.put("pollId", pollId);
-        voteData.put("optionOrder", presentationOrder);
-        voteData.put("presentationOrder", presentationOrder);
-        userId.ifPresentOrElse(u -> voteData.put("userId", u), () -> voteData.put("userId", null));
-        producerService.sendEvent(voteData);
-        RawWebSocketServer.broadcastJson(Map.of(
-            "type", "vote-delta",
-            "pollId", pollId,
-            "optionOrder", presentationOrder
-        ));
+        boolean success = pollService.castVote(pollId, userId, presentationOrder);
+
+        if (success) {
+            RawWebSocketServer.broadcastJson(Map.of(
+                "type", "vote-delta",
+                "pollId", pollId,
+                "optionOrder", presentationOrder
+            ));
+        }
     }
 
     //Test

@@ -11,7 +11,7 @@ COPY backend/settings.gradle.kts backend/build.gradle.kts ./
 COPY backend/src src
 COPY backend/gradle gradle
 COPY --from=webbuilder /web/dist ./src/main/resources/static
-RUN gradle bootJar
+RUN gradle clean bootJar
 RUN mv build/libs/*.jar app.jar
 
 FROM eclipse-temurin:21-alpine
