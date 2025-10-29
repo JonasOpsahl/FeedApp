@@ -225,6 +225,12 @@ public class HibernatePollService implements PollService {
 
             if (poll.getMaxVotesPerUser() == 1) {
                 if (!existingVotes.isEmpty()) {
+                    Vote existingVote = existingVotes.get(0);
+
+                    if (existingVote.getChosenOption().equals(chosenOption)) {
+                        return true;
+                    }
+
                     em.remove(existingVotes.get(0));
                 }
             } else {
