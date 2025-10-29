@@ -262,6 +262,17 @@
   margin-top: var(--spacing-lg);
 }
 
+.deadline {
+  margin-top: var(--spacing-md);
+  text-align: right;
+  color: var(--text-secondary);
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
 .wsPanel {             
   width: 100%;
   box-sizing: border-box;

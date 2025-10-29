@@ -11,6 +11,33 @@ interface VoteOnPollProps {
   pollData: PollData;
 }
 
+const toDeadlineDate = (p: PollData): Date | null => {
+  const anyP = p as any;
+  const v = anyP.validUntil ?? anyP.deadline ?? anyP.expiresAt;
+  if (!v) return null;
+  if (typeof v === "number") return new Date(v);
+  if (v instanceof Date) return v;
+  if (typeof v === "string") {
+    const asNum = Number(v);
+    if (Number.isFinite(asNum)) return new Date(asNum);
+    const parsed = Date.parse(v);
+    if (!Number.isNaN(parsed)) return new Date(parsed);
+  }
+  return null;
+};
+
+const formatDeadline = (d: Date) =>
+  new Intl.DateTimeFormat("no-NO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(d);
+
+
 const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
   const { currentUser } = useAuth();
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
@@ -124,6 +151,7 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
         );
       });
       await Promise.all(votePromises);
+        fireConfetti(); 
     } catch (error) {
       console.error(error);
       alert("Failed to submit vote");
@@ -136,6 +164,9 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
     (sum, count) => sum + count,
     0
   );
+
+  const deadline = toDeadlineDate(pollData);
+  const formattedDeadline = deadline ? formatDeadline(deadline) : null;
 
   return (
     <div className={styles.pollCard}>
@@ -198,6 +229,9 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
           {isSubmitting ? "Submitting..." : "Submit Vote"}
         </button>
       </form>
+      {formattedDeadline && (
+        <div className={styles.deadline}>DEADLINE: {formattedDeadline}</div>
+      )}
     </div>
   );
 };
