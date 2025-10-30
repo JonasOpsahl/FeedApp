@@ -5,6 +5,7 @@ import { useAuth } from "../Auth";
 import { castVote, getPollResults } from "../api";
 import { onWs } from "../ws";
 import confetti from "canvas-confetti"; 
+import EditPollModal from "./ManagePolls";
 
 
 interface VoteOnPollProps {
@@ -38,8 +39,10 @@ const formatDeadline = (d: Date) =>
   }).format(d);
 
 
-const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
+const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({pollData, onChanged,}) => {
   const { currentUser } = useAuth();
+  const isOwner = !!currentUser && ((pollData as any).creatorId === currentUser.id || (pollData as any).creator?.id === currentUser.id);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -168,17 +171,27 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
   const deadline = toDeadlineDate(pollData);
   const formattedDeadline = deadline ? formatDeadline(deadline) : null;
 
-  return (
-    <div className={styles.pollCard}>
+ return (
+    <div className={styles.pollCard} style={{ position: "relative" }}>
+      {isOwner && (
+        <button
+          className={styles.editButton}
+          style={{ position: "absolute", top: 8, right: 8 }}
+          title="Edit poll"
+          onClick={() => setIsEditOpen(true)}
+        >
+          Edit
+        </button>
+      )}
+
       <h3>{pollData.question}</h3>
 
       <div className={styles.optionsList}>
-        {pollData.pollOptions.map((option, index) => {
+        {pollData.pollOptions.map((option) => {
           const voteCount = results[option.caption] || 0;
-          const percentage =
-            totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
+          const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
           return (
-            <div key={index} className={styles.voteResultRow}>
+            <div key={option.presentationOrder} className={styles.voteResultRow}>
               <div className={styles.voteOptionLabel}>
                 <span>{option.caption}</span>
                 <strong>
@@ -186,15 +199,13 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
                 </strong>
               </div>
               <div className={styles.progressBarContainer}>
-                <div
-                  className={styles.progressBar}
-                  style={{ width: `${percentage}%` }}
-                />
+                <div className={styles.progressBar} style={{ width: `${percentage}%` }} />
               </div>
             </div>
           );
         })}
       </div>
+
 
       <form onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
         <p>
@@ -231,6 +242,17 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
       </form>
       {formattedDeadline && (
         <div className={styles.deadline}>DEADLINE: {formattedDeadline}</div>
+      )}
+      {isEditOpen && currentUser && (
+        <EditPollModal
+          poll={pollData}
+          ownerUserId={currentUser.id}
+          onClose={() => setIsEditOpen(false)}
+          onChanged={() => {
+            setIsEditOpen(false);
+            onChanged?.();
+          }}
+        />
       )}
     </div>
   );
