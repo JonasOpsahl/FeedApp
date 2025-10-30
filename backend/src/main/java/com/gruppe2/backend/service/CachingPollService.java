@@ -64,11 +64,15 @@ public class CachingPollService implements PollService {
     }
 
     @Override
-    public boolean deletePoll(Integer pollId) {
-        boolean success = delegate.deletePoll(pollId);
+    public boolean deletePoll(Integer pollId, Integer userId) {
+        boolean success = delegate.deletePoll(pollId, userId);
         if (success) {
-            System.out.println("Poll " + pollId + " deleted, invalidating cache");
-            jedis.del(getPollCacheKey(pollId));
+            try {
+                System.out.println("Poll " + pollId + " deleted, invalidating cache");
+                jedis.del(getPollCacheKey(pollId));
+            } catch (Exception e) {
+                System.out.println("Cache delete failed: " + e.getMessage());
+            }
         }
         return success;
     }
@@ -79,7 +83,7 @@ public class CachingPollService implements PollService {
         jedis.del(getPollCacheKey(pollId));
     }
 
-    // All handled by database and not cache
+  
     @Override public User createUser(String u, String e, String p) { return delegate.createUser(u, e, p); }
     @Override public List<User> getUsers() { return delegate.getUsers(); }
     @Override public User getUser(Integer id) { return delegate.getUser(id); }
@@ -90,7 +94,6 @@ public class CachingPollService implements PollService {
     @Override public Poll updatePoll(Optional<Integer> d, Integer pId, Integer uId, List<Integer> i) { return delegate.updatePoll(d, pId, uId, i); }
 
 
-    // Methods for the caching functionality
     @Override
     public boolean deleteUser(Integer id) {
         boolean success = delegate.deleteUser(id);
@@ -121,5 +124,12 @@ public class CachingPollService implements PollService {
     @Override
     public Set<String> getLoggedInUsers() {
         return jedis.smembers(LOGGED_IN_USERS_KEY);
+    }
+
+    @Override
+    public Poll addOptionsToPoll(Integer pollId, Integer userId, List<VoteOption> newOptions) {
+        Poll p = delegate.addOptionsToPoll(pollId, userId, newOptions);
+        if (p != null) invalidatePollCache(pollId);
+        return p;
     }
 }

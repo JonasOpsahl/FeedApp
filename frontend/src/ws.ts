@@ -1,7 +1,9 @@
 export type WsEvent =
   | { type: 'poll-created'; pollId: number; ts: number }
   | { type: 'poll-deleted'; pollId: number; ts: number }
-  | { type: 'vote-delta'; pollId: number; optionOrder: number; voterUserId: number | null; ts: number };
+  | { type: 'vote-delta'; pollId: number; optionOrder: number; voterUserId: number | null; ts: number }
+  | { type: "poll-updated"; pollId: number; ts: number }; 
+
 
 export type Listener = (e: WsEvent | string) => void;
 
@@ -38,7 +40,7 @@ export function connectWs() {
         listeners.forEach(l => l(e));
         return;
       }
-    } catch { /* ignore */ }
+    } catch {}
     listeners.forEach(l => l(String(raw)));
   };
 

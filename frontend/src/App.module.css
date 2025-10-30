@@ -189,6 +189,18 @@
   padding: var(--spacing-lg);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  position: relative; /* make absolute children anchor to the card */
+}
+.editButton {
+  composes: baseButton;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #64748b;
+  color: white;
+  font-size: 14px;
+  position: absolute;  /* place on the card */
+  top: 8px;
+  right: 8px;
+  z-index: 10;
 }
 
 .optionsList {
@@ -310,4 +322,46 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;               
+}
+
+.editButton {
+  composes: baseButton;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: #64748b; /* slate */
+  color: white;
+  font-size: 14px;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  width: min(560px, 92vw);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
 }

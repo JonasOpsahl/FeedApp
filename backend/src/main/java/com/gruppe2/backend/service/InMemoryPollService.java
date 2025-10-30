@@ -3,6 +3,7 @@ package com.gruppe2.backend.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -210,9 +211,13 @@ public class InMemoryPollService implements PollService{
 
     // Delete
     @Override
-    public boolean deletePoll(Integer pollId) {
-        polls.remove(pollId);
-        return true;
+    public boolean deletePoll(Integer pollId, Integer userId) {
+        Poll poll = polls.get(pollId);
+        if (poll != null && poll.getCreator().getUserId().equals(userId)) {
+            polls.remove(pollId);
+            return true;
+        }
+        return false;
     }
 
     // Votes AND VoteOptions
@@ -324,5 +329,29 @@ public class InMemoryPollService implements PollService{
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'invalidatePollCache'");
     }
+
+    @Override
+    public Poll addOptionsToPoll(Integer pollId, Integer userId, List<VoteOption> newOptions) {
+        Poll poll = polls.get(pollId);
+        if (poll == null || poll.getCreator() == null || !poll.getCreator().getUserId().equals(userId)) {
+            return null;
+        }
+        int maxOrder = poll.getPollOptions().stream()
+            .map(VoteOption::getPresentationOrder)
+            .max(Comparator.naturalOrder())
+            .orElse(0);
+
+        for (VoteOption vo : newOptions) {
+            if (vo.getCaption() == null || vo.getCaption().isBlank()) continue;
+            if (vo.getPresentationOrder() == null || vo.getPresentationOrder() <= 0) {
+                maxOrder += 1;
+                vo.setPresentationOrder(maxOrder);
+            }
+            vo.setPoll(poll);
+            poll.getPollOptions().add(vo);
+        }
+        return poll;
+    }
+  
 
 }

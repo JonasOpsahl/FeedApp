@@ -7,12 +7,17 @@ interface CreatePollProps {
   onPollCreated: () => void;
 }
 
+const toIsoLocal = (d: Date) => {
+  const pad = (n: number) => `${n}`.padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const CreatePoll: FC<CreatePollProps> = ({ onPollCreated }) => {
   const { currentUser } = useAuth();
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [votesPerUser, setVotesPerUser] = useState(1);
-  const [duration, setDuration] = useState(1);
+  const [deadline, setDeadline] = useState<string>(toIsoLocal(new Date(Date.now() + 24 * 3600_000)));
   const [isPublic, setIsPublic] = useState(true);
   const [userList, setUserList] = useState("");
 
@@ -35,10 +40,17 @@ const CreatePoll: FC<CreatePollProps> = ({ onPollCreated }) => {
       return;
     }
 
+    const targetMs = new Date(deadline).getTime();
+    if (!Number.isFinite(targetMs) || targetMs <= Date.now()) {
+      alert("Please pick a future deadline");
+      return;
+    }
+    const durationDays = Math.max(1, Math.ceil((targetMs - Date.now()) / 86_400_000));
+
     try {
       await createPoll({
         question,
-        durationDays: duration,
+        durationDays,
         creatorId: currentUser.id,
         visibility: isPublic ? "PUBLIC" : "PRIVATE",
         maxVotesPerUser: votesPerUser,
@@ -58,7 +70,7 @@ const CreatePoll: FC<CreatePollProps> = ({ onPollCreated }) => {
       setQuestion("");
       setOptions(["", ""]);
       setVotesPerUser(1);
-      setDuration(1);
+      setDeadline(toIsoLocal(new Date(Date.now() + 24 * 3600_000)));
       setIsPublic(true);
       setUserList("");
     } catch (error) {
@@ -72,18 +84,15 @@ const CreatePoll: FC<CreatePollProps> = ({ onPollCreated }) => {
       <h2>Poll Creation</h2>
       <form onSubmit={handleSubmit}>
         <div className={styles.formGroup}>
-          <label htmlFor="question" className={styles.label}>
-            Poll Question
-          </label>
-          <input
-            type="text"
-            id="question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            className={styles.baseInput}
-            required
-          />
-        </div>
+        <label className={styles.label}>Title</label>
+        <input
+          className={styles.baseInput}
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Enter poll title"
+          required
+        />
+      </div>
         <div className={styles.formGroup}>
           <label className={styles.label}>Vote Options</label>
           {options.map((option, index) => (
@@ -130,21 +139,16 @@ const CreatePoll: FC<CreatePollProps> = ({ onPollCreated }) => {
           />
         </div>
         <div className={styles.formGroup}>
-          <label htmlFor="duration" className={styles.label}>
-            Poll Duration (Days)
-          </label>
-          <select
-            id="duration"
-            value={duration}
-            onChange={(e) => setDuration(Number(e.target.value))}
-            className={styles.baseInput}
-          >
-            <option value={1}>1 Day</option>
-            <option value={3}>3 Days</option>
-            <option value={7}>1 Week</option>
-            <option value={30}>30 Days</option>
-          </select>
-        </div>
+        <label htmlFor="deadline" className={styles.label}>Deadline</label>
+        <input
+          id="deadline"
+          type="datetime-local"
+          value={deadline}
+          onChange={(e) => setDeadline(e.target.value)}
+          className={styles.baseInput}
+          required
+        />
+      </div>
         <div className={styles.formGroup}>
           <div className={styles.checkboxContainer}>
             <input

@@ -116,9 +116,9 @@ public class PollController {
     }
 
     @DeleteMapping("/{id}")
-    public boolean deletePoll(@PathVariable Integer id) {
-        boolean ok = pollService.deletePoll(id);
-
+    public boolean deletePoll(@PathVariable Integer id,
+                              @RequestParam Integer userId) {
+        boolean ok = pollService.deletePoll(id, userId);  // pass owner id
         if (ok) {
             RawWebSocketServer.broadcast("pollsUpdated");
             RawWebSocketServer.broadcastJson(Map.of(
@@ -129,5 +129,33 @@ public class PollController {
         }
         return ok;
     }
+
+
+    @PostMapping("/{id}/options")
+    public Poll addOptionsToPoll(@PathVariable Integer id,
+                             @RequestParam Integer userId,
+                             @RequestParam List<String> optionCaptions,
+                             @RequestParam List<Integer> optionOrders) {
+    List<VoteOption> pollOptions = new ArrayList<>();
+    for (int i = 0; i < optionCaptions.size(); i++) {
+        VoteOption option = new VoteOption();
+        option.setCaption(optionCaptions.get(i));
+        option.setPresentationOrder(optionOrders.get(i));
+        pollOptions.add(option);
+    }
+
+    Poll updated = pollService.addOptionsToPoll(id, userId, pollOptions);
+
+    if (updated != null) {
+        RawWebSocketServer.broadcast("pollsUpdated");
+        RawWebSocketServer.broadcastJson(Map.of(
+            "type", "poll-updated",
+            "pollId", id,
+            "ts", System.currentTimeMillis()
+        ));
+    }
+    return updated;
+}
+    
 
 }

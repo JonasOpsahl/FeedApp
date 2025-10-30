@@ -184,13 +184,21 @@ public class HibernatePollService implements PollService {
 
     @Override
     @Transactional
-    public boolean deletePoll(Integer pollId) {
+    public boolean deletePoll(Integer pollId, Integer userId) {
         Poll pollToDelete = em.find(Poll.class, pollId);
-        if (pollToDelete != null) {
-            em.remove(pollToDelete);
-            return true;
+        if (pollToDelete == null || !pollToDelete.getCreator().getUserId().equals(userId)) {
+            return false;
         }
-        return false;
+        em.createQuery("DELETE FROM Vote v WHERE v.chosenOption.poll.id = :id")
+          .setParameter("id", pollId)
+          .executeUpdate();
+
+        em.createQuery("DELETE FROM VoteOption vo WHERE vo.poll.id = :id")
+          .setParameter("id", pollId)
+          .executeUpdate();
+
+        em.remove(pollToDelete);
+        return true;
     }
     
     @Override
@@ -286,4 +294,31 @@ public class HibernatePollService implements PollService {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'invalidatePollCache'");
     }
+
+    @Override
+    @Transactional
+    public Poll addOptionsToPoll(Integer pollId, Integer userId, List<VoteOption> newOptions) {
+        Poll poll = em.find(Poll.class, pollId);
+        if (poll == null || poll.getCreator() == null || !poll.getCreator().getUserId().equals(userId)) {
+            return null;
+        }
+
+        int maxOrder = poll.getPollOptions().stream()
+            .map(VoteOption::getPresentationOrder)
+            .max(Comparator.naturalOrder())
+            .orElse(0);
+
+        for (VoteOption vo : newOptions) {
+            if (vo.getCaption() == null || vo.getCaption().isBlank()) continue;
+            if (vo.getPresentationOrder() == null || vo.getPresentationOrder() <= 0) {
+                maxOrder += 1;
+                vo.setPresentationOrder(maxOrder);
+            }
+            vo.setPoll(poll);         
+            em.persist(vo);          
+            poll.getPollOptions().add(vo);
+        }
+        em.flush();
+        return poll;
+}
 }

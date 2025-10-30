@@ -147,3 +147,37 @@ export const getPollResults = async (
   if (!response.ok) throw new Error("Failed to fetch results");
   return response.json();
 };
+
+export async function updatePollDurationDays(pollId: number, userId: number, durationDays: number) {
+  const qs = new URLSearchParams({
+    userId: String(userId),
+    durationDays: String(Math.max(1, Math.ceil(durationDays))),
+  });
+  const res = await fetch(`/api/polls/${pollId}?${qs.toString()}`, {
+    method: "PUT",
+  });
+  if (!res.ok) throw new Error(`Update deadline failed (${res.status})`);
+  return res.json();
+}
+
+export async function deletePoll(pollId: number, userId: number): Promise<void> {
+  const qs = new URLSearchParams({ userId: String(userId) });
+  const res = await fetch(`/api/polls/${pollId}?${qs.toString()}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+}
+
+export async function addOptionsToPoll(pollId: number, userId: number, captions: string[], orders: number[]) {
+  const form = new URLSearchParams();
+  form.set("userId", String(userId));
+  captions.forEach(c => form.append("optionCaptions", c));
+  orders.forEach(o => form.append("optionOrders", String(o)));
+  const res = await fetch(`/api/polls/${pollId}/options`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
+  });
+  if (!res.ok) throw new Error(`Add options failed (${res.status})`);
+  return res.json();
+}
