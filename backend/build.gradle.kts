@@ -33,7 +33,7 @@ dependencies {
     implementation("org.apache.kafka:kafka-clients:3.7.0")
 
     implementation("org.springframework.boot:spring-boot-starter-websocket")
-    implementation ('org.springframework.boot:spring-boot-starter-actuator')
+    implementation ("org.springframework.boot:spring-boot-starter-actuator")
 }
 
 tasks.withType<Test> {
