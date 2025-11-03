@@ -25,12 +25,19 @@ jobs:
           echo "Current container statuses:"
           docker compose ps
 
-      #- name: Run health check
-      #  run: |
-      #    echo "Checking backend health..."
-          # This assumes your Spring Boot app has Actuator enabled.
-          # The -f flag makes curl fail if the HTTP status is not 2xx.
-      #    curl -f http://localhost:8080/actuator/health
+      - name: Run health check
+        run: |
+          echo "Checking backend health..."
+          curl -f http://localhost:8080/actuator/health
+          
+          echo "Checking frontend health..."
+          curl -f http://localhost:5173/actuator/health
+
+          echo "Checking redis health..."
+          curl -f http://localhost:6379/actuator/health
+
+          echo "Checking kafka health..."
+          curl -f http://localhost:9092/actuator/health
 
       - name: Stop services
         if: always()
