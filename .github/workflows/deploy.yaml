@@ -1,0 +1,37 @@
+name: Deployment of group 2 FeedApp
+run-name: ${{ github.actor }} push or pulled the project.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up -d --build
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for containers to stabilize..."
+          sleep 45 # Adjust this time based on how long your services take
+          
+          echo "Current container statuses:"
+          docker compose ps
+
+      #- name: Run health check
+      #  run: |
+      #    echo "Checking backend health..."
+          # This assumes your Spring Boot app has Actuator enabled.
+          # The -f flag makes curl fail if the HTTP status is not 2xx.
+      #    curl -f http://localhost:8080/actuator/health
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
