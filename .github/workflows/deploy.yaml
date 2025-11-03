@@ -33,8 +33,6 @@ jobs:
           echo "Checking frontend health..."
           curl -f http://localhost:5173/actuator/health
 
-          echo "Checking redis health..."
-          curl -f http://localhost:6379/actuator/health
 
       - name: Stop services
         if: always()
