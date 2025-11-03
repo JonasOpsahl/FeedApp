@@ -25,16 +25,15 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.6.0")
 
-    // --- CORRECTED DATABASE DEPENDENCIES ---
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("com.h2database:h2")
-    // --- END CORRECTION ---
 
     implementation("redis.clients:jedis:6.2.0")
     implementation("org.springframework.kafka:spring-kafka")
     implementation("org.apache.kafka:kafka-clients:3.7.0")
 
     implementation("org.springframework.boot:spring-boot-starter-websocket")
+    implementation ('org.springframework.boot:spring-boot-starter-actuator')
 }
 
 tasks.withType<Test> {
