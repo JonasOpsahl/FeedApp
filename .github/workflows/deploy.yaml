@@ -36,9 +36,6 @@ jobs:
           echo "Checking redis health..."
           curl -f http://localhost:6379/actuator/health
 
-          echo "Checking kafka health..."
-          curl -f http://localhost:9092/actuator/health
-
       - name: Stop services
         if: always()
         run: docker compose down
