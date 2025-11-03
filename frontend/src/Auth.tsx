@@ -5,7 +5,6 @@ import {
   type FC,
   type ReactNode,
 } from "react";
-import { fetchAllUsers } from "./api";
 
 interface User {
   id: number;
@@ -23,17 +22,21 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const login = async (username: string, _password: string) => {
+  const login = async (username: string, password: string) => {
     console.log("Attempting login with:", username);
-
-    const users = await fetchAllUsers();
-
-    const foundUser = users.find((user) => user.username === username);
-
-    if (foundUser) {
-      setCurrentUser({ id: foundUser.userId, username: foundUser.username });
+  
+    const res = await fetch("/api/users/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+  
+    const data = await res.json();
+  
+    if (res.ok && data.valid) {
+      setCurrentUser({ id: data.userId, username: data.username });
     } else {
-      throw new Error("User not found");
+      throw new Error("Invalid username or password");
     }
   };
 

@@ -163,4 +163,6 @@ public class Poll {
     public Integer getCreatorId() {
         return creator != null ? creator.getUserId() : null;
     }
+
+  
 }

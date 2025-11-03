@@ -21,7 +21,7 @@ public interface PollService {
     List<Poll> getPolls(Optional<Integer> userId);
     Poll getPoll(Integer pollId, Integer userId);
     Poll updatePoll(Optional<Integer> durationDays, Integer pollId, Integer userId, List<Integer> newInvites);
-    boolean deletePoll(Integer pollId);
+    boolean deletePoll(Integer pollId, Integer userId);
     boolean castVote(Integer pollId, Optional<Integer> userId, Integer presentationOrder);
     Map<String, Integer> getPollResults(Integer pollId);
     void loginUser(Integer userId);
@@ -29,6 +29,7 @@ public interface PollService {
     boolean isUserLoggedIn(Integer userId);
     Set<String> getLoggedInUsers();
     void invalidatePollCache(Integer pollId);
+    Poll addOptionsToPoll(Integer pollId, Integer userId, List<VoteOption> newOptions);
 
     
 }

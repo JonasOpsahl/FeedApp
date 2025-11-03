@@ -5,14 +5,44 @@ import { useAuth } from "../Auth";
 import { castVote, getPollResults } from "../api";
 import { onWs } from "../ws";
 import confetti from "canvas-confetti"; 
+import EditPollModal from "./ManagePolls";
 
 
 interface VoteOnPollProps {
   pollData: PollData;
 }
 
-const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
+const toDeadlineDate = (p: PollData): Date | null => {
+  const anyP = p as any;
+  const v = anyP.validUntil ?? anyP.deadline ?? anyP.expiresAt;
+  if (!v) return null;
+  if (typeof v === "number") return new Date(v);
+  if (v instanceof Date) return v;
+  if (typeof v === "string") {
+    const asNum = Number(v);
+    if (Number.isFinite(asNum)) return new Date(asNum);
+    const parsed = Date.parse(v);
+    if (!Number.isNaN(parsed)) return new Date(parsed);
+  }
+  return null;
+};
+
+const formatDeadline = (d: Date) =>
+  new Intl.DateTimeFormat("no-NO", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).format(d);
+
+
+const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({pollData, onChanged,}) => {
   const { currentUser } = useAuth();
+  const isOwner = !!currentUser && ((pollData as any).creatorId === currentUser.id || (pollData as any).creator?.id === currentUser.id);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
   const [results, setResults] = useState<Record<string, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -124,6 +154,7 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
         );
       });
       await Promise.all(votePromises);
+        fireConfetti(); 
     } catch (error) {
       console.error(error);
       alert("Failed to submit vote");
@@ -137,17 +168,30 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
     0
   );
 
-  return (
-    <div className={styles.pollCard}>
+  const deadline = toDeadlineDate(pollData);
+  const formattedDeadline = deadline ? formatDeadline(deadline) : null;
+
+ return (
+    <div className={styles.pollCard} style={{ position: "relative" }}>
+      {isOwner && (
+        <button
+          className={styles.editButton}
+          style={{ position: "absolute", top: 8, right: 8 }}
+          title="Edit poll"
+          onClick={() => setIsEditOpen(true)}
+        >
+          Edit
+        </button>
+      )}
+
       <h3>{pollData.question}</h3>
 
       <div className={styles.optionsList}>
-        {pollData.pollOptions.map((option, index) => {
+        {pollData.pollOptions.map((option) => {
           const voteCount = results[option.caption] || 0;
-          const percentage =
-            totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
+          const percentage = totalVotes > 0 ? (voteCount / totalVotes) * 100 : 0;
           return (
-            <div key={index} className={styles.voteResultRow}>
+            <div key={option.presentationOrder} className={styles.voteResultRow}>
               <div className={styles.voteOptionLabel}>
                 <span>{option.caption}</span>
                 <strong>
@@ -155,15 +199,13 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
                 </strong>
               </div>
               <div className={styles.progressBarContainer}>
-                <div
-                  className={styles.progressBar}
-                  style={{ width: `${percentage}%` }}
-                />
+                <div className={styles.progressBar} style={{ width: `${percentage}%` }} />
               </div>
             </div>
           );
         })}
       </div>
+
 
       <form onSubmit={handleSubmit} style={{ marginTop: "20px" }}>
         <p>
@@ -198,6 +240,20 @@ const VoteOnPoll: FC<VoteOnPollProps> = ({ pollData }) => {
           {isSubmitting ? "Submitting..." : "Submit Vote"}
         </button>
       </form>
+      {formattedDeadline && (
+        <div className={styles.deadline}>DEADLINE: {formattedDeadline}</div>
+      )}
+      {isEditOpen && currentUser && (
+        <EditPollModal
+          poll={pollData}
+          ownerUserId={currentUser.id}
+          onClose={() => setIsEditOpen(false)}
+          onChanged={() => {
+            setIsEditOpen(false);
+            onChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 };

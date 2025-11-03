@@ -1,0 +1,39 @@
+name: Deployment of group 2 FeedApp
+run-name: ${{ github.actor }} push or pulled the project.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Start services
+        run: docker compose up -d --build
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for containers to stabilize..."
+          sleep 45 # Adjust this time based on how long your services take
+          
+          echo "Current container statuses:"
+          docker compose ps
+
+      - name: Run health check
+        run: |
+          echo "Checking backend health..."
+          curl -f http://localhost:8080/actuator/health
+          
+          echo "Checking frontend health..."
+          curl -f http://localhost:5173/actuator/health
+
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
