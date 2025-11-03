@@ -65,7 +65,7 @@ function App() {
         {currentUser ? (
           <>
             <span>
-              Welcome, <strong>{currentUser.username}</strong>! (userID: {currentUser.id})
+              Welcome, <strong>{currentUser.username}</strong>!
             </span>
             <div style={{ display: "flex", gap: 8 }}>
               {/* REMOVE the old global Edit button here */}
