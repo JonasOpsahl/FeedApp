@@ -238,7 +238,7 @@ public class HibernatePollService implements PollService, CommentService {
                     Vote existingVote = existingVotes.get(0);
 
                     if (existingVote.getChosenOption().equals(chosenOption)) {
-                        return true;
+                        return false;
                     }
 
                     em.remove(existingVotes.get(0));

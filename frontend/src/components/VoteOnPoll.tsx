@@ -156,8 +156,10 @@ const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({ pollData
           currentUser?.id
         );
       });
-      await Promise.all(votePromises);
-      fireConfetti();
+      const results = await Promise.all(votePromises);
+      if (results.some((r) => r === true)) {
+        fireConfetti();
+      }
     } catch (error) {
       console.error(error);
       alert("Failed to submit vote");

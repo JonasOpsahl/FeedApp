@@ -1,17 +1,8 @@
 package com.gruppe2.backend.controller;
 
-import org.springframework.web.bind.annotation.RestController;
-
-import com.gruppe2.backend.model.Poll;
-import com.gruppe2.backend.model.VoteOption;
-import com.gruppe2.backend.service.CommentService;
-import com.gruppe2.backend.service.PollService;
-import com.gruppe2.backend.service.ProducerService;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import com.gruppe2.backend.config.RawWebSocketServer;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -24,12 +15,18 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.gruppe2.backend.config.RawWebSocketServer;
 import com.gruppe2.backend.model.Comment;
-import org.springframework.web.bind.annotation.RequestBody;
+import com.gruppe2.backend.model.Poll;
+import com.gruppe2.backend.model.VoteOption;
+import com.gruppe2.backend.service.CommentService;
+import com.gruppe2.backend.service.PollService;
+import com.gruppe2.backend.service.ProducerService;
 
 @RestController
 @CrossOrigin
@@ -90,18 +87,22 @@ public class PollController {
     }
 
     @PostMapping("/{id}/vote")
-    @ResponseStatus(HttpStatus.OK)
-    public void castVote(@PathVariable("id") Integer pollId,
-            @RequestParam Integer presentationOrder,
-            @RequestParam(required = false) Optional<Integer> userId) {
+    public ResponseEntity<Boolean> castVote(
+        @PathVariable("id") Integer pollId,
+        @RequestParam Integer presentationOrder,
+        @RequestParam(required = false) Optional<Integer> userId) {
 
         boolean success = pollService.castVote(pollId, userId, presentationOrder);
 
         if (success) {
             RawWebSocketServer.broadcastJson(Map.of(
-                    "type", "vote-delta",
-                    "pollId", pollId,
-                    "optionOrder", presentationOrder));
+                "type", "vote-delta",
+                "pollId", pollId,
+                "optionOrder", presentationOrder
+            ));
+            return ResponseEntity.ok(true);
+        } else {
+            return ResponseEntity.ok(false);
         }
     }
 

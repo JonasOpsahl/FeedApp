@@ -123,7 +123,7 @@ export const castVote = async (
   pollId: number,
   presentationOrder: number,
   userId?: number
-): Promise<void> => {
+): Promise<boolean> => {
   const params = new URLSearchParams();
   params.append("presentationOrder", presentationOrder.toString());
   if (userId) {
@@ -136,8 +136,13 @@ export const castVote = async (
     body: params.toString(),
   });
 
-  if (!response.ok) throw new Error("Failed to cast vote");
-  return;
+  if (!response.ok) {
+    console.error("Failed to cast vote:", response.status);
+    return false;
+  }
+
+  const result = await response.json();
+  return result === true;
 };
 
 export const getPollResults = async (
