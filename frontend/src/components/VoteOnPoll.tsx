@@ -4,8 +4,11 @@ import type { Poll as PollData } from "../api";
 import { useAuth } from "../Auth";
 import { castVote, getPollResults } from "../api";
 import { onWs } from "../ws";
-import confetti from "canvas-confetti"; 
+import confetti from "canvas-confetti";
 import EditPollModal from "./ManagePolls";
+import CommentsSection from "./CommentSection";
+
+
 
 
 interface VoteOnPollProps {
@@ -39,7 +42,7 @@ const formatDeadline = (d: Date) =>
   }).format(d);
 
 
-const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({pollData, onChanged,}) => {
+const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({ pollData, onChanged, }) => {
   const { currentUser } = useAuth();
   const isOwner = !!currentUser && ((pollData as any).creatorId === currentUser.id || (pollData as any).creator?.id === currentUser.id);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -173,7 +176,7 @@ const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({pollData,
   const deadline = toDeadlineDate(pollData);
   const formattedDeadline = deadline ? formatDeadline(deadline) : null;
 
- return (
+  return (
     <div className={styles.pollCard} style={{ position: "relative" }}>
       {isOwner && (
         <button
@@ -216,11 +219,10 @@ const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({pollData,
         {pollData.pollOptions.map((option) => (
           <label
             key={option.presentationOrder}
-            className={`${styles.voteOption} ${
-              selectedOptions.includes(option.caption)
+            className={`${styles.voteOption} ${selectedOptions.includes(option.caption)
                 ? styles.voteOptionSelected
                 : ""
-            }`}
+              }`}
           >
             <input
               type={pollData.maxVotesPerUser > 1 ? "checkbox" : "radio"}
@@ -245,6 +247,10 @@ const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({pollData,
       {formattedDeadline && (
         <div className={styles.deadline}>DEADLINE: {formattedDeadline}</div>
       )}
+
+      {/* Comments attached at the bottom of the poll */}
+      <CommentsSection pollId={pollData.pollId} ownerUserId={pollData.creatorId} />
+
       {isEditOpen && currentUser && (
         <EditPollModal
           poll={pollData}
