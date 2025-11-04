@@ -1,19 +1,11 @@
 package com.gruppe2.backend.controller;
 
-import org.springframework.web.bind.annotation.RestController;
-
-import com.gruppe2.backend.model.Poll;
-import com.gruppe2.backend.model.VoteOption;
-import com.gruppe2.backend.service.PollService;
-import com.gruppe2.backend.service.ProducerService;
-
 import java.util.ArrayList;
 import java.util.List;
-import com.gruppe2.backend.config.RawWebSocketServer;
 import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,7 +14,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.gruppe2.backend.config.RawWebSocketServer;
+import com.gruppe2.backend.model.Poll;
+import com.gruppe2.backend.model.VoteOption;
+import com.gruppe2.backend.service.PollService;
+import com.gruppe2.backend.service.ProducerService;
 
 
 @RestController
@@ -84,10 +82,10 @@ public class PollController {
     }
 
     @PostMapping("/{id}/vote")
-    @ResponseStatus(HttpStatus.OK)
-    public void castVote(@PathVariable("id") Integer pollId,
-                        @RequestParam Integer presentationOrder,
-                        @RequestParam(required = false) Optional<Integer> userId) {
+    public ResponseEntity<Boolean> castVote(
+        @PathVariable("id") Integer pollId,
+        @RequestParam Integer presentationOrder,
+        @RequestParam(required = false) Optional<Integer> userId) {
 
         boolean success = pollService.castVote(pollId, userId, presentationOrder);
 
@@ -97,6 +95,9 @@ public class PollController {
                 "pollId", pollId,
                 "optionOrder", presentationOrder
             ));
+            return ResponseEntity.ok(true);
+        } else {
+            return ResponseEntity.ok(false);
         }
     }
 

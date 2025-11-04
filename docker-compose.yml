@@ -1,16 +1,18 @@
 services:
   frontend:
     
-    build: ./frontend
+    # build: ./frontend
+    image: erlendandre/feedapp-frontend:latest
     ports:
       - "5173:5173"
     depends_on:
       - backend
 
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    # build:
+    #   context: .
+    #   dockerfile: backend/Dockerfile
+    image: erlendandre/feedapp-backend:latest
     ports:
       - "8080:8080"
     environment:
