@@ -181,3 +181,69 @@ export async function addOptionsToPoll(pollId: number, userId: number, captions:
   if (!res.ok) throw new Error(`Add options failed (${res.status})`);
   return res.json();
 }
+// ...existing code...
+export interface Comment {
+  commentId: number;
+  pollId?: number;
+  parentId?: number | null;
+  authorId: number;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  parent?: Comment | null;
+  
+}
+
+export interface CommentsPage<T> {
+  items: T[];
+  total: number;
+  hasMore: boolean;
+  nextOffset: number;
+}
+
+export async function fetchComments(pollId: number, offset = 0, limit = 5): Promise<CommentsPage<Comment>> {
+  const res = await fetch(`/api/polls/${pollId}/comments?offset=${offset}&limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch comments");
+  return res.json();
+}
+
+export async function fetchReplies(pollId: number, parentId: number, offset = 0, limit = 3): Promise<CommentsPage<Comment>> {
+  const res = await fetch(`/api/polls/${pollId}/comments/replies?parentId=${parentId}&offset=${offset}&limit=${limit}`);
+  if (!res.ok) throw new Error("Failed to fetch replies");
+  return res.json();
+}
+
+export async function addComment(pollId: number, authorId: number, content: string, parentId?: number): Promise<Comment> {
+  const res = await fetch(`/api/polls/${pollId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ authorId, content, parentId }),
+  });
+  if (!res.ok) throw new Error("Failed to add comment");
+  return res.json();
+}
+export const updateComment = async (
+  pollId: number,
+  commentId: number,
+  editorId: number,
+  content: string
+): Promise<Comment> => {
+  const res = await fetch(`/api/polls/${pollId}/comments/${commentId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ editorId, content }),
+  });
+  if (!res.ok) throw new Error(`Failed to update comment`);
+  return res.json();
+};
+export const deleteComment = async (
+  pollId: number,
+  commentId: number,
+  requesterId: number
+): Promise<void> => {
+  const res = await fetch(
+    `/api/polls/${pollId}/comments/${commentId}?requesterId=${requesterId}`,
+    { method: "DELETE" }
+  );
+  if (!res.ok) throw new Error(`Failed to delete comment`);
+};

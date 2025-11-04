@@ -1,6 +1,7 @@
 package com.gruppe2.backend.service;
 
 import com.gruppe2.backend.model.*;
+
 import jakarta.persistence.EntityManager;
 
 import org.springframework.context.annotation.Profile;
@@ -15,9 +16,10 @@ import java.util.stream.Stream;
 
 @Service("hibernatePollService")
 @Profile("database")
-public class HibernatePollService implements PollService {
+public class HibernatePollService implements PollService, CommentService {
 
     private EntityManager em;
+
 
     private final PollTopicManager pollTopicManager;
     private final ProducerService producerService;
@@ -326,5 +328,99 @@ public class HibernatePollService implements PollService {
         }
         em.flush();
         return poll;
+}
+
+    @Override
+    @Transactional
+    public Comment addComment(Integer pollId, Integer authorId, String content, Optional<Integer> parentId) {
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException("content must not be empty");
+        }
+        Poll poll = em.find(Poll.class, pollId);
+        if (poll == null) throw new IllegalArgumentException("poll not found: " + pollId);
+
+        Comment c = new Comment();
+        c.setPoll(poll);
+        c.setAuthorId(authorId);
+        c.setContent(content.trim());
+        c.setCreatedAt(Instant.now());
+        c.setUpdatedAt(Instant.now());
+        parentId.ifPresent(pid -> {
+            Comment parentRef = em.find(Comment.class, pid);
+            if (parentRef != null) c.setParent(parentRef);
+        });
+        em.persist(c);
+        em.flush();
+        return c;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Comment> getTopLevel(Integer pollId, int offset, int limit) {
+        return em.createQuery(
+                "SELECT c FROM Comment c WHERE c.poll.pollId = :pid AND c.parent IS NULL ORDER BY c.createdAt DESC",
+                Comment.class)
+            .setParameter("pid", pollId)
+            .setFirstResult(Math.max(0, offset))
+            .setMaxResults(Math.max(1, limit))
+            .getResultList();
+    }
+
+     @Override
+    @Transactional(readOnly = true)
+    public long countTopLevel(Integer pollId) {
+        return em.createQuery(
+                "SELECT COUNT(c) FROM Comment c WHERE c.poll.pollId = :pid AND c.parent IS NULL",
+                Long.class)
+            .setParameter("pid", pollId)
+            .getSingleResult();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Comment> getReplies(Integer pollId, Integer parentId, int offset, int limit) {
+        return em.createQuery(
+                "SELECT c FROM Comment c WHERE c.poll.pollId = :pid AND c.parent.commentId = :parentId ORDER BY c.createdAt ASC",
+                Comment.class)
+            .setParameter("pid", pollId)
+            .setParameter("parentId", parentId)
+            .setFirstResult(Math.max(0, offset))
+            .setMaxResults(Math.max(1, limit))
+            .getResultList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countReplies(Integer pollId, Integer parentId) {
+        return em.createQuery(
+                "SELECT COUNT(c) FROM Comment c WHERE c.poll.pollId = :pid AND c.parent.commentId = :parentId",
+                Long.class)
+            .setParameter("pid", pollId)
+            .setParameter("parentId", parentId)
+            .getSingleResult();
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Comment> findById(Integer commentId) {
+        return Optional.ofNullable(em.find(Comment.class, commentId));
+    }
+
+    @Override
+    @Transactional
+    public Comment updateContent(Integer commentId, String newContent) {
+        Comment c = em.find(Comment.class, commentId);
+        if (c == null) throw new IllegalArgumentException("comment not found");
+        c.setContent(Objects.requireNonNullElse(newContent, "").trim());
+        c.setUpdatedAt(Instant.now());
+        return c;
+    }
+
+    @Override
+    @Transactional  
+    public void delete(Integer commentId) {
+        Comment c = em.find(Comment.class, commentId);
+        if (c != null) em.remove(c); 
 }
 }

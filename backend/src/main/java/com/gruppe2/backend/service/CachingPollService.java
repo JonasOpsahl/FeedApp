@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import com.gruppe2.backend.model.Poll;
 import com.gruppe2.backend.model.User;
 import com.gruppe2.backend.model.VoteOption;
+import com.gruppe2.backend.model.Comment;
+
 
 import redis.clients.jedis.UnifiedJedis;
 
@@ -18,16 +20,21 @@ import java.util.stream.Collectors;
 
 @Service
 @Primary
-public class CachingPollService implements PollService {
+public class CachingPollService implements PollService, CommentService {
 
     private Integer CACHE_TTL_SECONDS = 3600;
     private String LOGGED_IN_USERS_KEY = "users:loggedIn";
     private PollService delegate;
     private UnifiedJedis jedis;  
 
+    private final CommentService commentsDelegate;
+
+
     public CachingPollService(@Qualifier("hibernatePollService") PollService delegate, JedisConnectionManager connectionManager) {
         this.delegate = delegate;
         this.jedis = connectionManager.getJedis();
+        this.commentsDelegate = (CommentService) delegate; 
+
     }
 
     private String getPollCacheKey(Integer pollId) {
@@ -132,4 +139,23 @@ public class CachingPollService implements PollService {
         if (p != null) invalidatePollCache(pollId);
         return p;
     }
+
+    @Override public Comment addComment(Integer pollId, Integer authorId, String content, Optional<Integer> parentId) {
+        return commentsDelegate.addComment(pollId, authorId, content, parentId);
+    }
+    @Override public List<Comment> getTopLevel(Integer pollId, int offset, int limit) {
+        return commentsDelegate.getTopLevel(pollId, offset, limit);
+    }
+    @Override public long countTopLevel(Integer pollId) { return commentsDelegate.countTopLevel(pollId); }
+    @Override public List<Comment> getReplies(Integer pollId, Integer parentId, int offset, int limit) {
+        return commentsDelegate.getReplies(pollId, parentId, offset, limit);
+    }
+    @Override public long countReplies(Integer pollId, Integer parentId) {
+        return commentsDelegate.countReplies(pollId, parentId);
+    }
+
+    @Override public Optional<Comment> findById(Integer commentId) { return commentsDelegate.findById(commentId); }
+    @Override public Comment updateContent(Integer commentId, String newContent) { return commentsDelegate.updateContent(commentId, newContent); }
+    @Override public void delete(Integer commentId) { commentsDelegate.delete(commentId); }
+
 }

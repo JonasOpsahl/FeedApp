@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -20,14 +21,21 @@ import com.gruppe2.backend.model.Poll;
 import com.gruppe2.backend.model.User;
 import com.gruppe2.backend.model.Vote;
 import com.gruppe2.backend.model.VoteOption;
+import com.gruppe2.backend.model.Comment;
+
 
 @Component
 @Profile("in-memory")
-public class InMemoryPollService implements PollService{
+public class InMemoryPollService implements PollService, CommentService {
     
     private Map<Integer, User> users = new HashMap<>();
     private Map<Integer, Poll> polls = new HashMap<>();
     private Map<Integer, Vote> allVotes = new HashMap<>();
+    private final Map<Integer, Comment> comments = new HashMap<>();
+
+    private Integer commentIdCreator() { return comments.size() + 1; }
+    
+
 
     public InMemoryPollService() {
 
@@ -352,6 +360,93 @@ public class InMemoryPollService implements PollService{
         }
         return poll;
     }
-  
+    
+
+    @Override
+    public Comment addComment(Integer pollId, Integer authorId, String content, Optional<Integer> parentId) {
+        Poll poll = polls.get(pollId);
+        if (poll == null) throw new IllegalArgumentException("poll not found: " + pollId);
+        if (content == null || content.trim().isEmpty()) throw new IllegalArgumentException("content empty");
+
+        Comment c = new Comment();
+        c.setCommentId(commentIdCreator());
+        c.setPoll(poll);
+        c.setAuthorId(authorId);
+        c.setContent(content.trim());
+        c.setCreatedAt(Instant.now());
+        c.setUpdatedAt(Instant.now());
+        parentId.ifPresent(pid -> {
+            Comment p = comments.get(pid);
+            if (p != null) c.setParent(p);
+        });
+        comments.put(c.getCommentId(), c);
+        return c;
+    }
+
+    @Override
+    public List<Comment> getTopLevel(Integer pollId, int offset, int limit) {
+        return comments.values().stream()
+            .filter(c -> c.getPoll() != null && c.getPoll().getPollId().equals(pollId) && c.getParent() == null)
+            .sorted((a,b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+            .skip(Math.max(0, offset))
+            .limit(Math.max(1, limit))
+            .toList();
+    }
+
+     @Override
+    public long countTopLevel(Integer pollId) {
+        return comments.values().stream()
+            .filter(c -> c.getPoll() != null && c.getPoll().getPollId().equals(pollId) && c.getParent() == null)
+            .count();
+    }
+
+    @Override
+    public List<Comment> getReplies(Integer pollId, Integer parentId, int offset, int limit) {
+        return comments.values().stream()
+            .filter(c -> c.getPoll() != null && c.getPoll().getPollId().equals(pollId)
+                       && c.getParent() != null && c.getParent().getCommentId().equals(parentId))
+            .sorted((a,b) -> a.getCreatedAt().compareTo(b.getCreatedAt()))
+            .skip(Math.max(0, offset))
+            .limit(Math.max(1, limit))
+            .toList();
+    }
+
+    @Override
+    public long countReplies(Integer pollId, Integer parentId) {
+        return comments.values().stream()
+            .filter(c -> c.getPoll() != null && c.getPoll().getPollId().equals(pollId)
+                       && c.getParent() != null && c.getParent().getCommentId().equals(parentId))
+            .count();
+    }
+
+     @Override
+    public Optional<Comment> findById(Integer commentId) {
+        return Optional.ofNullable(comments.get(commentId));
+    }
+
+    @Override
+    public Comment updateContent(Integer commentId, String newContent) {
+        Comment c = comments.get(commentId);
+        if (c == null) throw new IllegalArgumentException("comment not found");
+        c.setContent(Objects.requireNonNullElse(newContent, "").trim());
+        c.setUpdatedAt(Instant.now());
+        return c;
+    }
+
+    @Override
+    public void delete(Integer commentId) {
+    if (commentId == null) return;
+    // collect subtree
+    List<Integer> toRemove = new ArrayList<>();
+    collect(commentId, toRemove);
+    for (Integer id : toRemove) comments.remove(id);
+}
+private void collect(Integer id, List<Integer> acc) {
+    acc.add(id);
+    comments.values().stream()
+        .filter(c -> c.getParent() != null && id.equals(c.getParent().getCommentId()))
+        .map(Comment::getCommentId)
+        .forEach(childId -> collect(childId, acc));
+}
 
 }

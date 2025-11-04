@@ -15,6 +15,8 @@ function App() {
   const [polls, setPolls] = useState<Poll[]>([]);
   const [isLoginView, setIsLoginView] = useState(false);
   const [wsMessages, setWsMessages] = useState<string[]>([]);
+  const [commentVersionByPoll, setCommentVersionByPoll] = useState<Record<number, number>>({}); 
+
 
   const refreshPolls = () => {
     fetchVisiblePolls(currentUser?.id)
@@ -34,14 +36,28 @@ function App() {
         setWsMessages((prev) => [msg, ...prev].slice(0, 25));
         return;
       }
+
       const e = msg as WsEvent;
+
       if (e.type === "poll-created" || e.type === "poll-deleted" || e.type === "poll-updated") {
         refreshPolls();
       } else if (e.type === "vote-delta") {
         setWsMessages((p) => [
-          `vote-delta poll=${e.pollId} optionOrder=${e.optionOrder}`,
+          `vote-delta poll=${(e as any).pollId} optionOrder=${(e as any).optionOrder}`,
           ...p,
         ].slice(0, 25));
+      } else if (
+        (e as any).type === "comment-created" ||
+        (e as any).type === "comment-updated" ||
+        (e as any).type === "comment-deleted"
+      ) {
+        const pid = (e as any).pollId;
+        if (typeof pid === "number") {
+          setCommentVersionByPoll((prev) => ({
+            ...prev,
+            [pid]: (prev[pid] ?? 0) + 1,
+          }));
+        }
       }
     });
     return () => {
@@ -110,7 +126,11 @@ function App() {
             {polls.length > 0 ? (
               <div className={styles.pollListContainer}>
                 {polls.map((poll) => (
-                  <VoteOnPoll key={poll.pollId} pollData={poll} onChanged={refreshPolls} />
+                  <VoteOnPoll
+                    key={`${poll.pollId}-${commentVersionByPoll[poll.pollId] ?? 0}`} 
+                    pollData={poll}
+                    onChanged={refreshPolls}
+                  />
                 ))}
               </div>
             ) : (

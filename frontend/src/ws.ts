@@ -52,3 +52,4 @@ export function connectWs() {
 
   sock.onerror = () => sock?.close();
 }
+

@@ -28,7 +28,8 @@
   font-size: 16px;
   font-family: 'Ubuntu', sans-serif;
   transition: all 0.2s ease-in-out;
-  color: var(--background); /* Adds contrast for visibility */
+  color: var(--background);
+  /* Adds contrast for visibility */
 }
 
 .baseButton:hover {
@@ -73,10 +74,9 @@
   display: flex;
   background-color: var(--surface);
   border: 1px solid var(--border);
-  border-top: 1px solid var(--border); 
+  border-top: 1px solid var(--border);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  overflow: hidden; /* clip the underline to rounded corners */
-
+  overflow: hidden;
 }
 
 .tabButton {
@@ -89,7 +89,7 @@
   font-weight: 600;
   color: var(--text-secondary);
   transition: color 0.2s ease-in-out, border-bottom-color 0.2s ease-in-out;
-  position: relative;   
+  position: relative;
 }
 
 .tabButton:hover {
@@ -122,8 +122,8 @@
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  margin-bottom: 0;            
-  border-bottom: 0;            
+  margin-bottom: 0;
+  border-bottom: 0;
   overflow: hidden;
 }
 
@@ -189,15 +189,16 @@
   padding: var(--spacing-lg);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  position: relative; /* make absolute children anchor to the card */
+  position: relative;
 }
+
 .editButton {
   composes: baseButton;
   padding: var(--spacing-sm) var(--spacing-md);
   background-color: #64748b;
   color: white;
   font-size: 14px;
-  position: absolute;  /* place on the card */
+  position: absolute;
   top: 8px;
   right: 8px;
   z-index: 10;
@@ -229,7 +230,7 @@
 
 .voteOptionSelected {
   border-color: var(--primary);
-  background-color: var(--surface); /* Highlights the selected option */
+  background-color: var(--surface);
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.4);
 }
 
@@ -285,16 +286,16 @@
   opacity: 0.9;
 }
 
-.wsPanel {             
+.wsPanel {
   width: 100%;
   box-sizing: border-box;
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
-  margin: 0 0 var(--spacing-lg) 0;          
-  background: var(--surface);         
+  margin: 0 0 var(--spacing-lg) 0;
+  background: var(--surface);
   border: 1px solid var(--border);
   color: #cde8ff;
-  overflow: hidden;                         
+  overflow: hidden;
 }
 
 .wsTitle {
@@ -317,26 +318,26 @@
   max-width: 100%;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.07);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;               
+  text-overflow: ellipsis;
 }
 
 .editButton {
   composes: baseButton;
   padding: var(--spacing-sm) var(--spacing-md);
-  background-color: #64748b; /* slate */
+  background-color: #64748b;
   color: white;
   font-size: 14px;
 }
 
-/* Modal */
+
 .modalOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.55);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -349,7 +350,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .modalHeader {
@@ -364,4 +365,167 @@
   align-items: center;
   gap: var(--spacing-md);
   margin-top: var(--spacing-lg);
+}
+
+
+.commentsSection {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border);
+}
+
+.commentsTitle {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+  letter-spacing: .3px;
+}
+
+.commentList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.commentItem {
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.commentMeta {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.commentAuthor {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.commentBody {
+  margin: 4px 0 6px;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+}
+
+.replyToggle {
+  composes: baseButton;
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+}
+
+.replies {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.replyItem {
+  font-size: 0.95rem;
+}
+
+.viewMoreBtn {
+  composes: addButton;
+  padding: 8px 12px;
+  width: auto;
+}
+
+.commentTextarea {
+  composes: baseInput;
+}
+
+.commentActions {
+  margin-top: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+.commentSubmit {
+  composes: submitButton;
+  width: auto;
+  padding: 10px 14px;
+}
+
+.replyTextarea {
+  composes: baseInput;
+}
+
+.replySubmit {
+  composes: submitButton;
+  width: auto;
+  padding: 8px 12px;
+}
+
+
+.secondaryButton {
+  composes: baseButton;
+  background-color: #64748b;
+  /* slate */
+  color: #fff;
+}
+
+.dangerButton {
+  composes: baseButton;
+  background-color: var(--danger);
+  color: #fff;
+}
+
+.editArea {
+  margin: 6px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.commentMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.commentActionsInline {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.actionButton {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 18px;
+  border-radius: 8px;
+}
+
+.actionButton:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.actionPrimary {
+  background: var(--primary);
+  color: #0b0f14;
+  border-color: var(--primary);
+}
+
+.actionDanger {
+  border-color: var(--danger);
+  color: #fff;
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.editArea {
+  margin: 6px 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
