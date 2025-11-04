@@ -87,7 +87,7 @@ public class PollController {
     }
 
     @PostMapping("/{id}/vote")
-    public ResponseEntity<Boolean> castVote(
+    public boolean castVote(
         @PathVariable("id") Integer pollId,
         @RequestParam Integer presentationOrder,
         @RequestParam(required = false) Optional<Integer> userId) {
@@ -100,10 +100,9 @@ public class PollController {
                 "pollId", pollId,
                 "optionOrder", presentationOrder
             ));
-            return ResponseEntity.ok(true);
-        } else {
-            return ResponseEntity.ok(false);
         }
+
+        return success;
     }
 
     @GetMapping("/{id}/results")
