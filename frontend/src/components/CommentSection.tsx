@@ -43,17 +43,15 @@ const CommentsSection: FC<CommentsSectionProps> = ({
   useEffect(() => {
     fetchAllUsers()
       .then((users) => {
-        const entries = (users as any[])
-          .map((u) => {
-            const id = u.id ?? u.userId;
-            const name =
-              u.username ?? u.name ?? (id != null ? `user #${id}` : "user");
-            return id != null ? [id, name] : null;
-          })
-          .filter(Boolean) as [number, string][];
+        console.log("Fetched users:", users);
+        const entries = users.map((user) => {
+          return [user.userId, user.username];
+        });
         setUsernames(Object.fromEntries(entries));
       })
-      .catch(() => { });
+      .catch((err) => {
+        console.error("Failed to fetch users for comments:", err);
+      });
   }, []);
 
   // Load initial top-level comments
@@ -80,18 +78,25 @@ const CommentsSection: FC<CommentsSectionProps> = ({
     if (!top?.items?.length) return;
     // fetch first page of replies to obtain total count for each top-level comment
     top.items.forEach((c) => {
-      ensureRepliesLoaded(c.commentId, true).catch(() => { });
+      ensureRepliesLoaded(c.commentId, true).catch(() => {});
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [top?.items]); // whenever top items change, refresh their replies metadata
-
 
   // Helpers for replies paging
   const ensureRepliesLoaded = async (parentId: number, reset = false) => {
     const rs = repliesState[parentId];
     const offset = reset || !rs ? 0 : rs.offset;
-    const page = await fetchReplies(pollId, parentId, offset, initialRepliesLimit);
-    setRepliesState((prev) => ({ ...prev, [parentId]: { page, offset: page.nextOffset } }));
+    const page = await fetchReplies(
+      pollId,
+      parentId,
+      offset,
+      initialRepliesLimit
+    );
+    setRepliesState((prev) => ({
+      ...prev,
+      [parentId]: { page, offset: page.nextOffset },
+    }));
   };
 
   const loadMoreTop = async () => {
@@ -99,9 +104,9 @@ const CommentsSection: FC<CommentsSectionProps> = ({
     setTop((prev) =>
       prev
         ? {
-          ...page,
-          items: [...prev.items, ...page.items],
-        }
+            ...page,
+            items: [...prev.items, ...page.items],
+          }
         : page
     );
     setTopOffset(page.nextOffset);
@@ -110,7 +115,12 @@ const CommentsSection: FC<CommentsSectionProps> = ({
   const loadMoreReplies = async (parentId: number) => {
     const rs = repliesState[parentId];
     const offset = rs?.offset ?? 0;
-    const page = await fetchReplies(pollId, parentId, offset, initialRepliesLimit);
+    const page = await fetchReplies(
+      pollId,
+      parentId,
+      offset,
+      initialRepliesLimit
+    );
     setRepliesState((prev) => ({
       ...prev,
       [parentId]: {
@@ -130,7 +140,7 @@ const CommentsSection: FC<CommentsSectionProps> = ({
     }
     const content = newContent.trim();
     if (!content) return;
-    const created = await addComment(pollId, currentUser.id, content);
+    const created = await addComment(pollId, content);
     setNewContent("");
     setTop((prev) =>
       prev
@@ -147,19 +157,22 @@ const CommentsSection: FC<CommentsSectionProps> = ({
     }
     const trimmed = content.trim();
     if (!trimmed) return;
-    const created = await addComment(pollId, currentUser.id, trimmed, parentId);
+    const created = await addComment(pollId, trimmed, parentId);
     setRepliesState((prev) => {
       const current = prev[parentId];
       const nextPage: CommentsPage<Comment> = current?.page
         ? {
-          ...current.page,
-          items: [...current.page.items, created],
-          total: (current.page.total ?? 0) + 1,
-          nextOffset: (current.page.nextOffset ?? 0) + 1,
-          hasMore: false,
-        }
+            ...current.page,
+            items: [...current.page.items, created],
+            total: (current.page.total ?? 0) + 1,
+            nextOffset: (current.page.nextOffset ?? 0) + 1,
+            hasMore: false,
+          }
         : { items: [created], total: 1, hasMore: false, nextOffset: 1 };
-      return { ...prev, [parentId]: { page: nextPage, offset: nextPage.nextOffset } };
+      return {
+        ...prev,
+        [parentId]: { page: nextPage, offset: nextPage.nextOffset },
+      };
     });
   };
 
@@ -168,13 +181,13 @@ const CommentsSection: FC<CommentsSectionProps> = ({
     setTop((prev) =>
       prev
         ? {
-          ...prev,
-          items: prev.items.map((i) =>
-            i.commentId === commentId
-              ? { ...i, content, updatedAt: new Date().toISOString() }
-              : i
-          ),
-        }
+            ...prev,
+            items: prev.items.map((i) =>
+              i.commentId === commentId
+                ? { ...i, content, updatedAt: new Date().toISOString() }
+                : i
+            ),
+          }
         : prev
     );
     setRepliesState((prev) => {
@@ -209,7 +222,9 @@ const CommentsSection: FC<CommentsSectionProps> = ({
         const rs = next[+k];
         if (rs?.page) {
           const before = rs.page.items.length;
-          rs.page.items = rs.page.items.filter((i) => i.commentId !== commentId);
+          rs.page.items = rs.page.items.filter(
+            (i) => i.commentId !== commentId
+          );
           if (rs.page.total && rs.page.items.length < before) {
             rs.page.total = Math.max(0, (rs.page.total ?? before) - 1);
           }
@@ -221,16 +236,15 @@ const CommentsSection: FC<CommentsSectionProps> = ({
 
   const handleEdit = async (commentId: number, content: string) => {
     if (!currentUser) return;
-    await updateComment(pollId, commentId, currentUser.id, content);
+    await updateComment(pollId, commentId, content);
     applyEditLocally(commentId, content);
   };
 
   const handleDelete = async (commentId: number) => {
     if (!currentUser) return;
-    await deleteComment(pollId, commentId, currentUser.id);
+    await deleteComment(pollId, commentId);
     applyDeleteLocally(commentId);
   };
-
 
   // WS handling:
   useEffect(() => {
@@ -265,7 +279,6 @@ const CommentsSection: FC<CommentsSectionProps> = ({
             (c as any).parent?.commentId ??
             null;
 
-
           if (!parentId) {
             // top-level
             setTop((prev) =>
@@ -284,7 +297,10 @@ const CommentsSection: FC<CommentsSectionProps> = ({
                 hasMore: false,
                 nextOffset: (current.page.nextOffset ?? 0) + 1,
               };
-              return { ...prev, [parentId]: { page: nextPage, offset: nextPage.nextOffset } };
+              return {
+                ...prev,
+                [parentId]: { page: nextPage, offset: nextPage.nextOffset },
+              };
             });
 
             if (!repliesState[parentId]?.page) {
@@ -319,10 +335,10 @@ const CommentsSection: FC<CommentsSectionProps> = ({
     };
   }, [pollId, repliesState]);
 
-
-
-  const repliesStateOf = (parentId: number) => repliesState[parentId]?.page || null;
-  const onEnsureRepliesFor = (parentId: number) => ensureRepliesLoaded(parentId);
+  const repliesStateOf = (parentId: number) =>
+    repliesState[parentId]?.page || null;
+  const onEnsureRepliesFor = (parentId: number) =>
+    ensureRepliesLoaded(parentId);
   const onLoadMoreRepliesFor = (parentId: number) => loadMoreReplies(parentId);
 
   return (
@@ -410,191 +426,186 @@ const CommentItem: FC<{
   onEdit,
   onDelete,
 }) => {
-    const [showReplyBox, setShowReplyBox] = useState(false);
-    const [replyContent, setReplyContent] = useState("");
-    const [isEditing, setIsEditing] = useState(false);
-    const [editContent, setEditContent] = useState(comment.content);
+  const [showReplyBox, setShowReplyBox] = useState(false);
+  const [replyContent, setReplyContent] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(comment.content);
 
-    useEffect(() => {
-      if (!repliesState) onEnsureReplies().catch(() => { });
-    }, [comment.commentId]);
+  useEffect(() => {
+    if (!repliesState) onEnsureReplies().catch(() => {});
+  }, [comment.commentId]);
 
-    useEffect(() => {
-      if (!repliesState?.items) return;
-      for (const r of repliesState.items) {
-        onEnsureRepliesFor(r.commentId).catch(() => { });
-      }
-    }, [repliesState?.items]);
+  useEffect(() => {
+    if (!repliesState?.items) return;
+    for (const r of repliesState.items) {
+      onEnsureRepliesFor(r.commentId).catch(() => {});
+    }
+  }, [repliesState?.items]);
 
+  useEffect(() => {
+    if (showReplyBox && !repliesState) onEnsureReplies();
+  }, [showReplyBox]);
 
-    useEffect(() => {
-      if (showReplyBox && !repliesState) onEnsureReplies();
-    }, [showReplyBox]);
+  const created = useMemo(
+    () => new Date(comment.createdAt).toLocaleString(),
+    [comment.createdAt]
+  );
 
-    const created = useMemo(
-      () => new Date(comment.createdAt).toLocaleString(),
-      [comment.createdAt]
-    );
+  const canEdit = currentUserId != null && comment.authorId === currentUserId;
+  const canDelete =
+    canEdit || (ownerUserId != null && currentUserId === ownerUserId);
 
+  // Look at this later with group
+  // Bug with show votes
+  const totalDirect = repliesState?.total ?? 0;
 
-
-    const canEdit = currentUserId != null && comment.authorId === currentUserId;
-    const canDelete =
-      canEdit || (ownerUserId != null && currentUserId === ownerUserId);
-    
-    // Look at this later with group
-    // Bug with show votes
-    const totalDirect = repliesState?.total ?? 0;
-
-    const countDescendants = (parentId: number): number => {
-      const rs = repliesStateOf(parentId);
-      if (!rs) return 0;
-      const direct = rs.total ?? 0;
-      if (!rs.items?.length) return direct;
-      return rs.items.reduce(
-        (sum, child) => sum + countDescendants(child.commentId),
-        direct
-      );
-    };
-
-    const totalNested = (repliesState?.items ?? []).reduce(
+  const countDescendants = (parentId: number): number => {
+    const rs = repliesStateOf(parentId);
+    if (!rs) return 0;
+    const direct = rs.total ?? 0;
+    if (!rs.items?.length) return direct;
+    return rs.items.reduce(
       (sum, child) => sum + countDescendants(child.commentId),
-      0
+      direct
     );
+  };
 
-    const totalCount = totalDirect + totalNested;
-    const hasReplies = totalCount > 0;
+  const totalNested = (repliesState?.items ?? []).reduce(
+    (sum, child) => sum + countDescendants(child.commentId),
+    0
+  );
 
-    const closedLabel = hasReplies ? `Show replies (${totalCount})` : "Reply";
-    const openLabel = hasReplies ? `Hide replies (${totalCount})` : "Hide reply";
+  const totalCount = totalDirect + totalNested;
+  const hasReplies = totalCount > 0;
 
+  const closedLabel = hasReplies ? `Show replies (${totalCount})` : "Reply";
+  const openLabel = hasReplies ? `Hide replies (${totalCount})` : "Hide reply";
 
+  return (
+    <div className={styles.commentItem}>
+      <div className={styles.commentMeta}>
+        <span className={styles.commentAuthor}>
+          {userNameOf(comment.authorId)}
+        </span>
+        <span title={comment.createdAt}>{created}</span>
 
-    return (
-      <div className={styles.commentItem}>
-        <div className={styles.commentMeta}>
-          <span className={styles.commentAuthor}>
-            {userNameOf(comment.authorId)}
-          </span>
-          <span title={comment.createdAt}>{created}</span>
+        <div className={styles.commentActionsInline}>
+          {canEdit && !isEditing && (
+            <button
+              className={styles.actionButton}
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </button>
+          )}
+          {canDelete && (
+            <button
+              className={`${styles.actionButton} ${styles.actionDanger}`}
+              onClick={async () => {
+                if (confirm("Delete this comment?"))
+                  await onDelete(comment.commentId);
+              }}
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
 
-          <div className={styles.commentActionsInline}>
-            {canEdit && !isEditing && (
-              <button
-                className={styles.actionButton}
-                onClick={() => setIsEditing(true)}
-              >
-                Edit
-              </button>
-            )}
-            {canDelete && (
-              <button
-                className={`${styles.actionButton} ${styles.actionDanger}`}
-                onClick={async () => {
-                  if (confirm("Delete this comment?"))
-                    await onDelete(comment.commentId);
-                }}
-              >
-                Delete
-              </button>
-            )}
+      {!isEditing ? (
+        <div className={styles.commentBody}>{comment.content}</div>
+      ) : (
+        <div className={styles.editArea}>
+          <textarea
+            className={styles.replyTextarea}
+            rows={3}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+          />
+          <div className={styles.commentActions}>
+            <button
+              className={`${styles.actionButton} ${styles.actionPrimary}`}
+              disabled={!editContent.trim()}
+              onClick={async () => {
+                await onEdit(comment.commentId, editContent.trim());
+                setIsEditing(false);
+              }}
+            >
+              Save
+            </button>
+            <button
+              className={styles.actionButton}
+              onClick={() => {
+                setIsEditing(false);
+                setEditContent(comment.content);
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </div>
+      )}
 
-        {!isEditing ? (
-          <div className={styles.commentBody}>{comment.content}</div>
-        ) : (
-          <div className={styles.editArea}>
+      <button
+        className={styles.replyToggle}
+        onClick={() => setShowReplyBox((s) => !s)}
+      >
+        {showReplyBox ? openLabel : closedLabel}
+      </button>
+
+      {showReplyBox && (
+        <div className={styles.replies}>
+          {repliesState?.items?.map((r) => (
+            <div key={r.commentId} className={styles.replyItem}>
+              <CommentItem
+                comment={r}
+                repliesState={repliesStateOf(r.commentId)}
+                onEnsureReplies={() => onEnsureRepliesFor(r.commentId)}
+                onLoadMoreReplies={() => onLoadMoreRepliesFor(r.commentId)}
+                repliesStateOf={repliesStateOf}
+                onEnsureRepliesFor={onEnsureRepliesFor}
+                onLoadMoreRepliesFor={onLoadMoreRepliesFor}
+                onReply={onReply}
+                userNameOf={userNameOf}
+                currentUserId={currentUserId}
+                ownerUserId={ownerUserId}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            </div>
+          ))}
+
+          {repliesState && repliesState.hasMore && (
+            <button className={styles.viewMoreBtn} onClick={onLoadMoreReplies}>
+              View more replies
+            </button>
+          )}
+
+          <div>
             <textarea
               className={styles.replyTextarea}
-              rows={3}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              placeholder="Write a reply..."
+              value={replyContent}
+              onChange={(e) => setReplyContent(e.target.value)}
+              rows={2}
             />
             <div className={styles.commentActions}>
               <button
-                className={`${styles.actionButton} ${styles.actionPrimary}`}
-                disabled={!editContent.trim()}
-                onClick={async () => {
-                  await onEdit(comment.commentId, editContent.trim());
-                  setIsEditing(false);
-                }}
-              >
-                Save
-              </button>
-              <button
-                className={styles.actionButton}
+                className={styles.replySubmit}
+                disabled={!replyContent.trim()}
                 onClick={() => {
-                  setIsEditing(false);
-                  setEditContent(comment.content);
+                  onReply(comment.commentId, replyContent.trim());
+                  setReplyContent("");
                 }}
               >
-                Cancel
+                Reply
               </button>
             </div>
           </div>
-        )}
-
-        <button
-          className={styles.replyToggle}
-          onClick={() => setShowReplyBox((s) => !s)}
-        >
-          {showReplyBox ? openLabel : closedLabel}
-        </button>
-
-        {showReplyBox && (
-          <div className={styles.replies}>
-            {repliesState?.items?.map((r) => (
-              <div key={r.commentId} className={styles.replyItem}>
-                <CommentItem
-                  comment={r}
-                  repliesState={repliesStateOf(r.commentId)}
-                  onEnsureReplies={() => onEnsureRepliesFor(r.commentId)}
-                  onLoadMoreReplies={() => onLoadMoreRepliesFor(r.commentId)}
-                  repliesStateOf={repliesStateOf}
-                  onEnsureRepliesFor={onEnsureRepliesFor}
-                  onLoadMoreRepliesFor={onLoadMoreRepliesFor}
-                  onReply={onReply}
-                  userNameOf={userNameOf}
-                  currentUserId={currentUserId}
-                  ownerUserId={ownerUserId}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                />
-              </div>
-            ))}
-
-            {repliesState && repliesState.hasMore && (
-              <button className={styles.viewMoreBtn} onClick={onLoadMoreReplies}>
-                View more replies
-              </button>
-            )}
-
-            <div>
-              <textarea
-                className={styles.replyTextarea}
-                placeholder="Write a reply..."
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                rows={2}
-              />
-              <div className={styles.commentActions}>
-                <button
-                  className={styles.replySubmit}
-                  disabled={!replyContent.trim()}
-                  onClick={() => {
-                    onReply(comment.commentId, replyContent.trim());
-                    setReplyContent("");
-                  }}
-                >
-                  Reply
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default CommentsSection;

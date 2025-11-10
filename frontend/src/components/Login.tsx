@@ -1,7 +1,7 @@
 import { useState, type FC, type FormEvent } from "react";
 import { useAuth } from "../Auth";
 import styles from "../App.module.css";
-import { createUser } from "../api";
+import { registerUser } from "../api";
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -27,7 +27,7 @@ const Login: FC<LoginProps> = ({ onLoginSuccess }) => {
         return;
       }
       try {
-        await createUser(username, email, password);
+        await registerUser(username, email, password);
         setMessage("Account created successfully");
         setIsRegistering(false);
         setUsername("");

@@ -153,7 +153,6 @@ const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({ pollData
         return castVote(
           pollData.pollId,
           optionToVote.presentationOrder,
-          currentUser?.id
         );
       });
       const results = await Promise.all(votePromises);
@@ -254,7 +253,6 @@ const VoteOnPoll: FC<VoteOnPollProps & { onChanged?: () => void }> = ({ pollData
       {isEditOpen && currentUser && (
         <EditPollModal
           poll={pollData}
-          ownerUserId={currentUser.id}
           onClose={() => setIsEditOpen(false)}
           onChanged={() => {
             setIsEditOpen(false);

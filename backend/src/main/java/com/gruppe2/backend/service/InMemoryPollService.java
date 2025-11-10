@@ -425,7 +425,7 @@ public class InMemoryPollService implements PollService, CommentService {
     }
 
     @Override
-    public Comment updateContent(Integer commentId, String newContent) {
+    public Comment updateContent(Integer commentId, String newContent, Integer requesterId) {
         Comment c = comments.get(commentId);
         if (c == null) throw new IllegalArgumentException("comment not found");
         c.setContent(Objects.requireNonNullElse(newContent, "").trim());
@@ -434,7 +434,7 @@ public class InMemoryPollService implements PollService, CommentService {
     }
 
     @Override
-    public void delete(Integer commentId) {
+    public void delete(Integer commentId, Integer requesterId) {
     if (commentId == null) return;
     // collect subtree
     List<Integer> toRemove = new ArrayList<>();
@@ -448,5 +448,4 @@ private void collect(Integer id, List<Integer> acc) {
         .map(Comment::getCommentId)
         .forEach(childId -> collect(childId, acc));
 }
-
 }

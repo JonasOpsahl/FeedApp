@@ -51,7 +51,6 @@ const CreatePoll: FC<CreatePollProps> = ({ onPollCreated }) => {
       await createPoll({
         question,
         durationDays,
-        creatorId: currentUser.id,
         visibility: isPublic ? "PUBLIC" : "PRIVATE",
         maxVotesPerUser: votesPerUser,
         invitedUsers: isPublic

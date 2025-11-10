@@ -9,7 +9,8 @@ import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,13 +25,13 @@ import org.springframework.web.bind.annotation.RestController;
 import com.gruppe2.backend.config.RawWebSocketServer;
 import com.gruppe2.backend.model.Comment;
 import com.gruppe2.backend.model.Poll;
+import com.gruppe2.backend.model.User;
 import com.gruppe2.backend.model.VoteOption;
 import com.gruppe2.backend.service.CommentService;
 import com.gruppe2.backend.service.PollService;
 import com.gruppe2.backend.service.ProducerService;
 
 @RestController
-@CrossOrigin
 @RequestMapping("/api/polls")
 public class PollController {
 
@@ -45,24 +46,30 @@ public class PollController {
     }
 
     @RequestMapping
-    public List<Poll> getPolls(@RequestParam(required = false) Optional<Integer> userId) {
+    public List<Poll> getPolls(@AuthenticationPrincipal User authenticatedUser) {
+        Optional<Integer> userId = (authenticatedUser != null)
+            ? Optional.of(authenticatedUser.getUserId())
+            : Optional.empty();
         return pollService.getPolls(userId);
     }
 
     @RequestMapping("/{id}")
-    public Poll getPoll(@PathVariable Integer id, @RequestParam Integer userId) {
+    public Poll getPoll(@PathVariable Integer id, @AuthenticationPrincipal User authenticatedUser) {
+        Integer userId = (authenticatedUser != null) ? authenticatedUser.getUserId() : null;
         return pollService.getPoll(id, userId);
     }
 
     @PostMapping
-    public Poll createPoll(@RequestParam String question,
-            @RequestParam Integer durationDays,
-            @RequestParam Integer creatorId,
-            @RequestParam Poll.Visibility visibility,
-            @RequestParam Optional<Integer> maxVotesPerUser,
-            @RequestParam(required = false) List<Integer> invitedUsers,
-            @RequestParam List<String> optionCaptions,
-            @RequestParam List<Integer> optionOrders) {
+    public Poll createPoll(@AuthenticationPrincipal User authenticatedUser,
+                           @RequestParam String question,
+                           @RequestParam Integer durationDays,
+                           @RequestParam Poll.Visibility visibility,
+                           @RequestParam Optional<Integer> maxVotesPerUser,
+                           @RequestParam(required = false) List<Integer> invitedUsers,
+                           @RequestParam List<String> optionCaptions,
+                           @RequestParam List<Integer> optionOrders) {
+
+        Integer creatorId = authenticatedUser.getUserId();
 
         List<VoteOption> pollOptions = new ArrayList<>();
         for (int i = 0; i < optionCaptions.size(); i++) {
@@ -92,17 +99,13 @@ public class PollController {
     public boolean castVote(
         @PathVariable("id") Integer pollId,
         @RequestParam Integer presentationOrder,
-        @RequestParam(required = false) Optional<Integer> userId) {
+        @AuthenticationPrincipal User authenticatedUser) {
+
+        Optional<Integer> userId = (authenticatedUser != null)
+            ? Optional.of(authenticatedUser.getUserId())
+            : Optional.empty();
 
         boolean success = pollService.castVote(pollId, userId, presentationOrder);
-
-        if (success) {
-            RawWebSocketServer.broadcastJson(Map.of(
-                "type", "vote-delta",
-                "pollId", pollId,
-                "optionOrder", presentationOrder
-            ));
-        }
 
         return success;
     }
@@ -113,19 +116,25 @@ public class PollController {
     }
 
     @PutMapping("/{id}")
-    public Poll updatePoll(@PathVariable Integer id, @RequestParam Optional<Integer> durationDays,
-            @RequestParam Integer userId, @RequestParam(required = false) List<Integer> newInvites) {
-        if (newInvites == null) {
-            List<Integer> newInvitesEmpty = new ArrayList<>();
-            return pollService.updatePoll(durationDays, id, userId, newInvitesEmpty);
-        }
-        return pollService.updatePoll(durationDays, id, userId, newInvites);
+    public Poll updatePoll(@PathVariable Integer id,
+                           @RequestParam Optional<Integer> durationDays,
+                           @AuthenticationPrincipal User authenticatedUser,
+                           @RequestParam(required = false) List<Integer> newInvites) {
+
+        Integer userId = authenticatedUser.getUserId();
+
+        List<Integer> invitesList = (newInvites == null) ? new ArrayList<>() : newInvites;
+
+        return pollService.updatePoll(durationDays, id, userId, invitesList);
     }
 
     @DeleteMapping("/{id}")
     public boolean deletePoll(@PathVariable Integer id,
-            @RequestParam Integer userId) {
-        boolean ok = pollService.deletePoll(id, userId); // pass owner id
+                              @AuthenticationPrincipal User authenticatedUser) {
+
+        Integer userId = authenticatedUser.getUserId();
+        boolean ok = pollService.deletePoll(id, userId);
+
         if (ok) {
             RawWebSocketServer.broadcast("pollsUpdated");
             RawWebSocketServer.broadcastJson(Map.of(
@@ -138,9 +147,12 @@ public class PollController {
 
     @PostMapping("/{id}/options")
     public Poll addOptionsToPoll(@PathVariable Integer id,
-            @RequestParam Integer userId,
-            @RequestParam List<String> optionCaptions,
-            @RequestParam List<Integer> optionOrders) {
+                                 @AuthenticationPrincipal User authenticatedUser,
+                                 @RequestParam List<String> optionCaptions,
+                                 @RequestParam List<Integer> optionOrders) {
+
+        Integer userId = authenticatedUser.getUserId();
+
         List<VoteOption> pollOptions = new ArrayList<>();
         for (int i = 0; i < optionCaptions.size(); i++) {
             VoteOption option = new VoteOption();
@@ -176,7 +188,6 @@ public class PollController {
         }
     }
     
-
     @GetMapping("/{id}/comments")
     public CommentsPage<Comment> getTopLevel(@PathVariable Integer id,
             @RequestParam(defaultValue = "0") Integer offset,
@@ -197,21 +208,27 @@ public class PollController {
     }
 
     public static class AddCommentRequest {
-        public Integer authorId;
         public String content;
         public Integer parentId;
     }
 
-  @PostMapping("/{id}/comments")
-    public ResponseEntity<?> addComment(@PathVariable Integer id, @RequestBody AddCommentRequest body) {
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<?> addComment(@PathVariable Integer id,
+                                        @AuthenticationPrincipal User authenticatedUser,
+                                        @RequestBody AddCommentRequest body) {
         try {
-            if (body == null || body.authorId == null || body.content == null) {
-                return ResponseEntity.badRequest().body("authorId and content are required");
+            if (authenticatedUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You must be logged in to comment.");
             }
-            var created = commentService.addComment(id, body.authorId, body.content,
+            if (body == null || body.content == null) {
+                return ResponseEntity.badRequest().body("content is required");
+            }
+
+            Integer authorId = authenticatedUser.getUserId();
+
+            var created = commentService.addComment(id, authorId, body.content,
                     Optional.ofNullable(body.parentId));
 
-            // broadcast: comment-created
             RawWebSocketServer.broadcast("commentsUpdated");
             var payload = new HashMap<String, Object>();
             payload.put("type", "comment-created");
@@ -229,28 +246,24 @@ public class PollController {
         }
     }
 
-     public static class EditCommentRequest {
-        public Integer editorId;
+    public static class EditCommentRequest {
         public String content;
     }
 
     @PutMapping("/{id}/comments/{commentId}")
     public ResponseEntity<?> editComment(@PathVariable Integer id,
                                          @PathVariable Integer commentId,
+                                         @AuthenticationPrincipal User authenticatedUser,
                                          @RequestBody EditCommentRequest body) {
         try {
-            var cOpt = commentService.findById(commentId);
-            if (cOpt.isEmpty() || !Objects.equals(cOpt.get().getPoll().getPollId(), id)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("comment not found");
+            if (authenticatedUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You must be logged in to edit.");
             }
-            var c = cOpt.get();
-            if (body == null || body.editorId == null || body.content == null) {
-                return ResponseEntity.badRequest().body("editorId and content required");
+            if (body == null || body.content == null) {
+                return ResponseEntity.badRequest().body("content is required");
             }
-            if (!Objects.equals(c.getAuthorId(), body.editorId)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("only author can edit");
-            }
-            var updated = commentService.updateContent(commentId, body.content);
+
+            var updated = commentService.updateContent(commentId, body.content, authenticatedUser.getUserId());
 
             // broadcast: comment-updated
             RawWebSocketServer.broadcast("commentsUpdated");
@@ -262,27 +275,23 @@ public class PollController {
             ));
 
             return ResponseEntity.ok(updated);
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
     
-    
     @DeleteMapping("/{id}/comments/{commentId}")
     public ResponseEntity<?> deleteComment(@PathVariable Integer id,
                                            @PathVariable Integer commentId,
-                                           @RequestParam Integer requesterId) {
+            @AuthenticationPrincipal User authenticatedUser) {
         try {
-            var cOpt = commentService.findById(commentId);
-            if (cOpt.isEmpty() || !Objects.equals(cOpt.get().getPoll().getPollId(), id)) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("comment not found");
+            if (authenticatedUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("You must be logged in to delete.");
             }
-            var c = cOpt.get();
-            Integer ownerId = c.getPoll().getCreator() != null ? c.getPoll().getCreator().getUserId() : null;
-            if (!Objects.equals(c.getAuthorId(), requesterId) && !Objects.equals(ownerId, requesterId)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("not allowed");
-            }
-            commentService.delete(commentId);
+
+            commentService.delete(commentId, authenticatedUser.getUserId());
 
             // broadcast: comment-deleted
             RawWebSocketServer.broadcast("commentsUpdated");
@@ -294,9 +303,10 @@ public class PollController {
             ));
 
             return ResponseEntity.noContent().build();
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
-
 }

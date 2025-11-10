@@ -5,7 +5,6 @@ import { addOptionsToPoll, deletePoll, updatePollDurationDays } from "../api";
 
 interface Props {
   poll: Poll;
-  ownerUserId: number;
   onClose: () => void;
   onChanged: () => void;
 }
@@ -22,7 +21,7 @@ const readDeadlineMs = (p: Poll): number => {
          v instanceof Date ? v.getTime() : Date.now() + 24*3600_000;
 };
 
-export default function EditPollModal({ poll, ownerUserId, onClose, onChanged }: Props) {
+export default function EditPollModal({ poll, onClose, onChanged }: Props) {
   const nextOrder = useMemo(
     () => Math.max(...poll.pollOptions.map(o => o.presentationOrder)) + 1,
     [poll.pollOptions]
@@ -46,14 +45,14 @@ export default function EditPollModal({ poll, ownerUserId, onClose, onChanged }:
       const toAdd = newOptions.map(s => s.trim()).filter(Boolean);
       if (toAdd.length > 0) {
         const orders = toAdd.map((_, i) => nextOrder + i);
-        await addOptionsToPoll(poll.pollId, ownerUserId, toAdd, orders);
+        await addOptionsToPoll(poll.pollId, toAdd, orders);
       }
       // 2) Update deadline by delta from current validUntil
       const currentMs = readDeadlineMs(poll);
       const targetMs = new Date(deadline).getTime();
       const deltaDays = Math.ceil((targetMs - currentMs) / 86_400_000);
       if (Number.isFinite(deltaDays) && deltaDays !== 0) {
-        await updatePollDurationDays(poll.pollId, ownerUserId, deltaDays);
+        await updatePollDurationDays(poll.pollId, deltaDays);
       }
       onChanged();
     } finally {
@@ -65,7 +64,7 @@ export default function EditPollModal({ poll, ownerUserId, onClose, onChanged }:
     if (!confirm("Delete this poll permanently?")) return;
     setBusy(true);
     try {
-      await deletePoll(poll.pollId, ownerUserId);
+      await deletePoll(poll.pollId);
       onChanged();
     } finally {
       setBusy(false);

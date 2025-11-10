@@ -1,12 +1,12 @@
 package com.gruppe2.backend.service;
 
 import com.gruppe2.backend.model.*;
-
 import jakarta.persistence.EntityManager;
-
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException; // Import this
 
 import java.time.Duration;
 import java.time.Instant;
@@ -20,25 +20,25 @@ public class HibernatePollService implements PollService, CommentService {
 
     private EntityManager em;
 
-
     private final PollTopicManager pollTopicManager;
     private final ProducerService producerService;
+    private final PasswordEncoder passwordEncoder;
 
-    public HibernatePollService(EntityManager em, PollTopicManager pollTopicManager, ProducerService producerService) {
+    public HibernatePollService(EntityManager em, PollTopicManager pollTopicManager, ProducerService producerService, PasswordEncoder passwordEncoder) {
         this.em = em;
         this.pollTopicManager = pollTopicManager;
         this.producerService = producerService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // Users
-
     @Override
     @Transactional
     public User createUser(String username, String email, String password) {
         User newUser = new User();
         newUser.setUsername(username);
         newUser.setEmail(email);
-        newUser.setPassword(password);
+        newUser.setPassword(passwordEncoder.encode(password));
         em.persist(newUser);
         em.flush();
         return newUser;
@@ -63,7 +63,7 @@ public class HibernatePollService implements PollService, CommentService {
         if (toChange != null) {
             newUsername.ifPresent(toChange::setUsername);
             newEmail.ifPresent(toChange::setEmail);
-            newPassword.ifPresent(toChange::setPassword);
+            newPassword.ifPresent(pass -> toChange.setPassword(passwordEncoder.encode(pass)));
         }
         return toChange;
     }
@@ -134,7 +134,7 @@ public class HibernatePollService implements PollService, CommentService {
             visiblePollsStream = allPolls.stream()
                 .filter(poll ->
                     poll.getVisibility() == Poll.Visibility.PUBLIC ||
-                    poll.getCreator().getUserId().equals(id) ||
+                    (poll.getCreator() != null && poll.getCreator().getUserId().equals(id)) ||
                     (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(id))
                 );
         }
@@ -151,12 +151,18 @@ public class HibernatePollService implements PollService, CommentService {
         if (poll == null) {
             return null;
         }
-        
-        if (poll.getVisibility() == Poll.Visibility.PUBLIC ||
-           (poll.getCreator() != null && poll.getCreator().getUserId().equals(userId)) ||
-           (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(userId))) {
+
+        if (poll.getVisibility() == Poll.Visibility.PUBLIC) {
             return poll;
         }
+
+        if (userId != null) {
+            if ((poll.getCreator() != null && poll.getCreator().getUserId().equals(userId)) ||
+                (poll.getVisibility() == Poll.Visibility.PRIVATE && poll.getInvitedUsers().contains(userId))) {
+                return poll;
+            }
+        }
+
         return null;
     }
     
@@ -165,8 +171,8 @@ public class HibernatePollService implements PollService, CommentService {
     public Poll updatePoll(Optional<Integer> durationDays, Integer pollId, Integer userId, List<Integer> newInvites) {
         Poll toUpdate = em.find(Poll.class, pollId);
 
-        if (toUpdate == null || !toUpdate.getCreator().getUserId().equals(userId)) {
-            return null;
+        if (toUpdate == null || toUpdate.getCreator() == null || !toUpdate.getCreator().getUserId().equals(userId)) {
+            throw new AccessDeniedException("User not authorized to update this poll");
         }
 
         if (newInvites != null && !newInvites.isEmpty()) {
@@ -188,9 +194,11 @@ public class HibernatePollService implements PollService, CommentService {
     @Transactional
     public boolean deletePoll(Integer pollId, Integer userId) {
         Poll pollToDelete = em.find(Poll.class, pollId);
-        if (pollToDelete == null || !pollToDelete.getCreator().getUserId().equals(userId)) {
+
+        if (pollToDelete == null || pollToDelete.getCreator() == null || !pollToDelete.getCreator().getUserId().equals(userId)) {
             return false;
         }
+
         em.createQuery("DELETE FROM Vote v WHERE v.chosenOption.poll.id = :id")
           .setParameter("id", pollId)
           .executeUpdate();
@@ -203,6 +211,35 @@ public class HibernatePollService implements PollService, CommentService {
         return true;
     }
     
+    @Override
+    @Transactional
+    public Poll addOptionsToPoll(Integer pollId, Integer userId, List<VoteOption> newOptions) {
+        Poll poll = em.find(Poll.class, pollId);
+
+        if (poll == null || poll.getCreator() == null || !poll.getCreator().getUserId().equals(userId)) {
+            throw new AccessDeniedException("User not authorized to add options to this poll");
+        }
+
+        int maxOrder = poll.getPollOptions().stream()
+            .map(VoteOption::getPresentationOrder)
+            .max(Comparator.naturalOrder())
+            .orElse(0);
+
+        for (VoteOption vo : newOptions) {
+            if (vo.getCaption() == null || vo.getCaption().isBlank()) continue;
+            if (vo.getPresentationOrder() == null || vo.getPresentationOrder() <= 0) {
+                maxOrder += 1;
+                vo.setPresentationOrder(maxOrder);
+            }
+            vo.setPoll(poll);
+            em.persist(vo);
+            poll.getPollOptions().add(vo);
+        }
+        em.flush();
+        return poll;
+    }
+
+    // Voting and results
     @Override
     @Transactional
     public boolean castVote(Integer pollId, Optional<Integer> userId, Integer presentationOrder) {
@@ -259,6 +296,7 @@ public class HibernatePollService implements PollService, CommentService {
         System.out.println("Vote saved to DB. Publishing Kafka event for pollId: " + pollId);
         Map<String, Object> eventData = new HashMap<>();
         eventData.put("pollId", pollId);
+        eventData.put("optionOrder", presentationOrder);
 
         String topicName = pollTopicManager.getTopicNameForPoll(pollId);
 
@@ -281,54 +319,7 @@ public class HibernatePollService implements PollService, CommentService {
         return resultMap;
     }
 
-    @Override
-    public void loginUser(Integer userId) {}
-
-    @Override
-    public void logoutUser(Integer userId) {}
-
-    @Override
-    public boolean isUserLoggedIn(Integer userId) {
-        return false;
-    }
-
-    @Override
-    public Set<String> getLoggedInUsers() {
-        return new HashSet<>();
-    }
-
-    @Override
-    public void invalidatePollCache(Integer pollId) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'invalidatePollCache'");
-    }
-
-    @Override
-    @Transactional
-    public Poll addOptionsToPoll(Integer pollId, Integer userId, List<VoteOption> newOptions) {
-        Poll poll = em.find(Poll.class, pollId);
-        if (poll == null || poll.getCreator() == null || !poll.getCreator().getUserId().equals(userId)) {
-            return null;
-        }
-
-        int maxOrder = poll.getPollOptions().stream()
-            .map(VoteOption::getPresentationOrder)
-            .max(Comparator.naturalOrder())
-            .orElse(0);
-
-        for (VoteOption vo : newOptions) {
-            if (vo.getCaption() == null || vo.getCaption().isBlank()) continue;
-            if (vo.getPresentationOrder() == null || vo.getPresentationOrder() <= 0) {
-                maxOrder += 1;
-                vo.setPresentationOrder(maxOrder);
-            }
-            vo.setPoll(poll);         
-            em.persist(vo);          
-            poll.getPollOptions().add(vo);
-        }
-        em.flush();
-        return poll;
-}
+    // Comments
 
     @Override
     @Transactional
@@ -352,6 +343,37 @@ public class HibernatePollService implements PollService, CommentService {
         em.persist(c);
         em.flush();
         return c;
+    }
+
+    @Override
+    @Transactional
+    public Comment updateContent(Integer commentId, String newContent, Integer requesterId) {
+        Comment c = em.find(Comment.class, commentId);
+        if (c == null) throw new IllegalArgumentException("comment not found");
+
+        if (!Objects.equals(c.getAuthorId(), requesterId)) {
+            throw new AccessDeniedException("User not authorized to edit this comment");
+        }
+
+        c.setContent(Objects.requireNonNullElse(newContent, "").trim());
+        c.setUpdatedAt(Instant.now());
+        return c;
+    }
+
+    @Override
+    @Transactional
+    public void delete(Integer commentId, Integer requesterId) {
+        Comment c = em.find(Comment.class, commentId);
+        if (c == null) {
+             return;
+        }
+
+        Integer ownerId = c.getPoll().getCreator() != null ? c.getPoll().getCreator().getUserId() : null;
+        if (!Objects.equals(c.getAuthorId(), requesterId) && !Objects.equals(ownerId, requesterId)) {
+            throw new AccessDeniedException("User not authorized to delete this comment");
+        }
+
+        em.remove(c);
     }
 
     @Override
@@ -400,27 +422,32 @@ public class HibernatePollService implements PollService, CommentService {
             .getSingleResult();
     }
 
-
     @Override
     @Transactional(readOnly = true)
     public Optional<Comment> findById(Integer commentId) {
         return Optional.ofNullable(em.find(Comment.class, commentId));
     }
 
+
     @Override
-    @Transactional
-    public Comment updateContent(Integer commentId, String newContent) {
-        Comment c = em.find(Comment.class, commentId);
-        if (c == null) throw new IllegalArgumentException("comment not found");
-        c.setContent(Objects.requireNonNullElse(newContent, "").trim());
-        c.setUpdatedAt(Instant.now());
-        return c;
+    public void loginUser(Integer userId) {}
+
+    @Override
+    public void logoutUser(Integer userId) {}
+
+    @Override
+    public boolean isUserLoggedIn(Integer userId) {
+        return false;
     }
 
     @Override
-    @Transactional  
-    public void delete(Integer commentId) {
-        Comment c = em.find(Comment.class, commentId);
-        if (c != null) em.remove(c); 
-}
+    public Set<String> getLoggedInUsers() {
+        return new HashSet<>();
+    }
+
+    @Override
+    public void invalidatePollCache(Integer pollId) {
+        // TODO Auto-generated method stub
+        // throw new UnsupportedOperationException("Unimplemented method 'invalidatePollCache'");
+    }
 }
