@@ -67,6 +67,9 @@ public class SecurityConfig {
                 // Allow anyone to vote
                 .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
 
+                // Allow for health checks in deployment file
+                .requestMatchers("/actuator/**").permitAll()
+
                 // All other requests must be authenticated
                 .anyRequest().authenticated()
             )
