@@ -1,15 +1,60 @@
+% \section{Prototype Implementation}
+% \label{sec:implementation}
+
+% This section should provide brief details of how the prototype has been implemented.
+% You may want to use come code snippets here, but only focus on core features and aspects.
+% You are not meant to copy/paste your whole application code into the report.
+% Focus for instance how other developers may run your application and how they might develop it further...
+
+
+% The example below shows how you may include code. There are similar
+% styles for many other langages - in case you do not use Java in your
+% project. You can wrap the listing into a figure in case you need to
+% refer to it. How to create a figure was shown in Section~\ref{sec:technology}.
+
+% \lstinputlisting[language=java]{code/BoksVolum.java}
+
 \section{Prototype Implementation}
 \label{sec:implementation}
 
-This section should provide brief details of how the prototype has been implemented.
-You may want to use come code snippets here, but only focus on core features and aspects.
-You are not meant to copy/paste your whole application code into the report.
-Focus for instance how other developers may run your application and how they might develop it further...
+This section summarizes how the FeedApp prototype has been implemented, focusing on the core technical components, the main implementation challenges, and how developers can run or extend the system.
 
+\subsection{Backend Implementation}
 
-The example below shows how you may include code. There are similar
-styles for many other langages - in case you do not use Java in your
-project. You can wrap the listing into a figure in case you need to
-refer to it. How to create a figure was shown in Section~\ref{sec:technology}.
+Briefly describe:
 
-\lstinputlisting[language=java]{code/BoksVolum.java}
+\begin{itemize}
+	\item Spring Boot / Java version,
+	\item REST API structure,
+	\item PollService architecture (Hibernate, Caching, etc.),
+    \item Persistence and messaging (H2, Redis, Kafka),
+	\item Security (JWT, authentication flow),
+	\item Example of key logic (e.g., cache invalidation or voting process)
+\end{itemize}
+
+\subsection{Frontend Implementation}
+
+Briefly describe:
+
+\begin{itemize}
+	\item React + TypeScript structure,
+	\item Main components (CreatePoll, VoteOnPoll, CommentSection, Auth),
+	\item Communication with backend (REST + WebSocket),
+    \item State management and authentication handling,
+	\item Short code snippet illustrating an API call or WebSocket usage
+\end{itemize}
+
+\subsection{Containerization and Deployment}
+
+Describe:
+
+\begin{itemize}
+	\item Docker Compose setup (frontend, backend, Redis, Kafka),
+	\item Environment variables and ports,
+	\item Public images on Docker Hub,
+    \item Commands for building and running locally
+\end{itemize}
+
+\subsection{Extensibility and Future Work}
+
+...
