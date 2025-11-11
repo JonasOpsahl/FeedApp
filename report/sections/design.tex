@@ -1,17 +1,89 @@
+% \section{Design}
+% \label{sec:design}
+
+% Around 5 pages about functional aspects of the FeedApp application.
+
+% Concretely, you shall write about 
+
+% \begin{itemize}
+% 	\item the \emph{use cases},
+% 	\item the \emph{domain model}, and
+% 	\item the \emph{architecture} (including applied technologies)
+% \end{itemize}
+
+% Each part shall ideally be accompanied with a graphical representation (diagram).
+
+% You may have a look at the \href{https://github.com/selabhvl/dat250public/blob/master/projectdescription/README.md}{Examples on GitHub}.
+
 \section{Design}
 \label{sec:design}
 
 Around 5 pages about functional aspects of the FeedApp application.
 
-Concretely, you shall write about 
+\subsection{Use Cases}
+
+Describe:
 
 \begin{itemize}
-	\item the \emph{use cases},
-	\item the \emph{domain model}, and
-	\item the \emph{architecture} (including applied technologies)
+	\item Main functionality from the user’s perspective,
+	\item Actors: Guest User, Registered User, System,
+	\item Core use cases: Register/Login, Create Poll, Vote, Comment and Managing Polls,
+    \item Brief explanation of real-time updates and visibility (public/private polls)
 \end{itemize}
 
-Each part shall ideally be accompanied with a graphical representation (diagram).
+Optional:
 
-You may have a look at the \href{https://github.com/selabhvl/dat250public/blob/master/projectdescription/README.md}{Examples on GitHub}.
+\begin{itemize}
+	\item Use Case Diagram (Figure: Use case overview)
+\end{itemize}
 
+
+\subsection{Domain Model}
+
+
+Describe:
+
+\begin{itemize}
+	\item Core domain entities (User, Poll, Vote, VoteOption, Comment(?)),
+	\item Relationships between them (one-to-many, many-to-one),
+	\item Persistence through JPA/Hibernate
+\end{itemize}
+
+Optional:
+
+\begin{itemize}
+	\item UML Class Diagram (Figure: Domain Model Overview)
+	
+	Show main entities, attributes, and associations
+\end{itemize}
+
+
+\subsection{Architecture (including applied technologies)}
+
+Describe:
+
+\begin{itemize}
+	\item High-level architecture (frontend–backend–infrastructure),
+	\item Backend layers: Controller, Service, Repository,
+	\item Key technologies: Spring Boot, H2, Redis, Kafka, WebSocket, JWT,
+	\item Frontend technologies: React, TypeScript, REST API communication,
+	\item Interaction between components (data flow from frontend to backend),
+\end{itemize}
+
+Optional:
+
+\begin{itemize}
+	\item Architecture Diagram (Figure: System Architecture)
+	
+	Show containers/components (Frontend, Backend, Redis, Kafka, DB, WebSocket)
+\end{itemize}
+
+\subsection{Summary}
+
+Summarize:
+
+\begin{itemize}
+	\item How the design supports scalability, modularity, and real-time updates,
+	\item The rationale behind chosen technologies,
+	\item How the design connects to later implementation and deployment steps
+\end{itemize}
