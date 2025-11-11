@@ -12,6 +12,6 @@ public interface CommentService {
     List<Comment> getReplies(Integer pollId, Integer parentId, int offset, int limit);
     long countReplies(Integer pollId, Integer parentId);
     Optional<Comment> findById(Integer commentId);
-    Comment updateContent(Integer commentId, String newContent);
-    void delete(Integer commentId);
+    Comment updateContent(Integer commentId, String newContent, Integer requesterId);
+    void delete(Integer commentId, Integer requesterId);
 }

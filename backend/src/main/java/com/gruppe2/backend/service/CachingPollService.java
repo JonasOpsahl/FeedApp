@@ -155,7 +155,7 @@ public class CachingPollService implements PollService, CommentService {
     }
 
     @Override public Optional<Comment> findById(Integer commentId) { return commentsDelegate.findById(commentId); }
-    @Override public Comment updateContent(Integer commentId, String newContent) { return commentsDelegate.updateContent(commentId, newContent); }
-    @Override public void delete(Integer commentId) { commentsDelegate.delete(commentId); }
+    @Override public Comment updateContent(Integer commentId, String newContent, Integer requesterId) { return commentsDelegate.updateContent(commentId, newContent, requesterId); }
+    @Override public void delete(Integer commentId, Integer requesterId) { commentsDelegate.delete(commentId, requesterId); }
 
 }

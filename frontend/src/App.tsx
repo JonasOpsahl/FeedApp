@@ -19,7 +19,7 @@ function App() {
 
 
   const refreshPolls = () => {
-    fetchVisiblePolls(currentUser?.id)
+    fetchVisiblePolls()
       .then(setPolls)
       .catch((err) => console.error("Failed to load polls:", err));
   };
