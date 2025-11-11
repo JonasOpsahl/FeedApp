@@ -1,23 +1,36 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Approximately 1 page on:
+\subsection{Project Overview}
+FeedApp makes it easy to gather quick feedback and interaction between users. 
+They can create polls, vote, and discuss through comments.
+The app solves the problem of gathering input in real time, which often means manual counting or refreshing page for each new vote or comment.
+With live server updates, everyone instantly sees new votes and comments as they appear, creating a smooth and interactive experience.
+\bigskip
 
-\begin{itemize}
+The system is divided into a backend and a frontend.
+The backend provides REST endpoints for creating, reading, updating, and deleting polls, options, votes, and comments, and it also sends out events.
+The frontend shows the current state, listens to WebSocket updates, and keeps the user interface in sync with the server.
+This app is built to test key user interactions, explore event-driven design, and demonstrate a system that can easily scale as more users join.
 
-\item A brief introduction to the prototype implementation and topic of the project.
+\subsection{Technology Stack Summary}
+The backend is built with Spring Boot, Spring Security, and Java, providing REST APIs, data validation, and integration with messaging and caching systems.
+The frontend is made with React and TypeScript, focusing on reusable components and real-time state updates.
+An H2 in-memory database is used during development to speed up testing and iteration.
+Redis works as a cache and a simple coordination layer for frequently accessed data and precomputed views.
+Kafka acts as the messaging backbone, sending and receiving domain events to separate data writes from notifications and later analytics.
+Docker and Docker Compose manage all services for a consistent and repeatable setup.
+This technology stack was chosen for its scalability (through Kafka and horizontal growth), modularity (clear separation between frontend, backend, cache, and messaging), and maintainability (familiar frameworks and container-based tools).
 
-\item Discuss (briefly) the technology stack that has been selected
+\subsection{Project Outcome}
+The prototype supports creating and managing polls and options, voting with real-time result updates, and a threaded comment system with replies and edits.
+WebSocket broadcasting makes sure that votes and comments show up instantly for all users without needing to refresh.
+The event-driven setup makes it easy to add new features or services later, while Redis helps speed up repeated data access.
+The whole project is containerized for simple local development and easy migration to production databases and clusters.
 
-\item A brief account of the results that have been obtained in the project.
-
-\item A one paragraph overview at the end, explaining how the rest of the report is / has been organised.
-
-\end{itemize}
-
-\noindent
-This rest of this report is organised as follows:
-Section~\ref{sec:design} gives an ... .
-Section~\ref{sec:technology} gives an ... .
-Section~\ref{sec:implementation} gives an ... .
-Section~\ref{sec:conclusion} gives an ... .
+\subsection{Report Organization}
+This report is organized as follows:
+Section~\ref{sec:design} presents the overall design and architecture of FeedApp, including key use cases, the domain model, and system components.
+Section~\ref{sec:technology} focuses on the featured technology experiment with Kafka, covering its background, hypothesis, and evaluation results, along with supporting technologies such as Redis and Spring Boot with Spring Security.
+Section~\ref{sec:implementation} describes the prototype implementation, including backend and frontend details, deployment setup, and integration of Kafka-based event handling.
+Finally, Section~\ref{sec:conclusion} summarizes what was learned, discusses the results from Kafka experiment, and possible future improvements.
