@@ -79,7 +79,7 @@
 \maketitle
 
 \begin{abstract}
-\begin{spacing}{1.5}
+
 FeedApp is a website where people can vote in live polls and discuss them in comment threads.
 The goal is to let a user create a poll (private or public), either open or invite participants (for private polls), and receive votes and feedback that update instantly across all clients. 
 The system consists of a Spring Boot (Java) backend and a React (TypeScript) frontend, packaged with Docker for repeatable local deployment. 
@@ -88,7 +88,6 @@ WebSocket notifications share vote and comment changes to the UI without page re
 The architecture follows an event-driven style, this allows the system to stay organized and makes it easy to grow in the future.
 The main results are a fast and responsive user interface, an easy-to-expand modular design, and a container setup that can quickly switch to full production services with little effort.
 The main things we have learned are about is keeping data in sync between REST and WebSocket, handling cache updates correctly, and seeing how Kafka helps improve real-time features.
-\end{spacing}
 \end{abstract}
 
 \clearpage
