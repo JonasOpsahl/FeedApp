@@ -22,7 +22,7 @@ public class PollTopicManager {
 
     public void createPollTopic(Integer pollId) {
         String topicName = getTopicNameForPoll(pollId);
-        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
+        NewTopic topic = new NewTopic(topicName, 1, (short) 3);
         kafkaAdmin.createOrModifyTopics(topic);
         logger.info("Topic created successfully.");
     }
