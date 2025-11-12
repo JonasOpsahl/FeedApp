@@ -1,152 +1,115 @@
-
-% This section should provide brief details of how the prototype has been implemented.
-% You may want to use come code snippets here, but only focus on core features and aspects.
-% You are not meant to copy/paste your whole application code into the report.
-% Focus for instance how other developers may run your application and how they might develop it further...
-
-
-% The example below shows how you may include code. There are similar
-% styles for many other langages - in case you do not use Java in your
-% project. You can wrap the listing into a figure in case you need to
-% refer to it. How to create a figure was shown in Section~\ref{sec:technology}.
-
-% \lstinputlisting[language=java]{code/BoksVolum.java}
-
 \section{Prototype Implementation}
 \label{sec:implementation}
 
-This section summarizes how the FeedApp prototype has been implemented, focusing on the core technical components, the main implementation challenges, and how developers can run or extend the system.
-
-
+This section summarizes how the FeedApp prototype has been implemented, focusing on the core technical components and how developers can run or extend the system.
 
 \subsection{Setup and Deployment}
-Describe:
 
-\begin{itemize}
-	\item Docker Compose setup (frontend, backend, Redis, Kafka),
-	\item Environment variables and ports,
-	\item Public images on Docker Hub,
-    \item Commands for building and running locally
-\end{itemize}
+The FeedApp prototype runs as a multi-container application orchestrated by Docker Compose with four services: backend (Spring Boot, port 8080), frontend (React/Vite, port 5173), Redis (cache, port 6379), and Kafka (event bus, ports 9092/29092). 
+The backend reads infrastructure dependencies from environment variables: SPRING\_KAFKA\_BOOTSTRAP\_SERVERS=kafka:29092 and SPRING\_REDIS\_HOST=redis.
 
-Services: Spring Boot backend, React (Vite) frontend, Redis, and Kafka. All run with Docker Compose.
+To run locally, developers execute docker compose up -d and access the frontend at http://localhost:5173. 
+The system can be stopped with docker compose down.
 
-How to run
-\begin{itemize}
- \item \texttt{docker compose up -d}
- \item Frontend: \texttt{http://localhost:5173}
- \item Backend: \texttt{http://localhost:8080}
-\end{itemize}
-
-
-Compose
 \begin{lstlisting}[language=yaml]
 backend:
- ports: ["8080:8080"]
- environment:
-   - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
-   - SPRING_REDIS_HOST=redis
+  ports: ["8080:8080"]
+  environment:
+    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    - SPRING_REDIS_HOST=redis
 frontend: { ports: ["5173:5173"], depends_on: [backend] }
 \end{lstlisting}
 
+The frontend communicates with the backend via REST APIs and maintains a WebSocket connection for real-time push notifications.
 
 \subsection{Backend Implementation}
 
-Briefly describe:
+The backend uses Spring Boot with a layered architecture: Controllers handle HTTP mapping, Services contain business logic, and Repositories manage persistence. 
+The system supports two persistence strategies via Spring profiles: HibernatePollService (JPA/Hibernate for production) and InMemoryPollService (for testing). 
+A CachingPollService decorator adds Redis-based caching with Jedis, improving performance for frequently accessed data like poll results.
 
-\begin{itemize}
-	\item Spring Boot / Java version,
-	\item REST API structure,
-	\item PollService architecture (Hibernate, Caching, etc.),
-    \item Persistence and messaging (H2, Redis, Kafka),
-	\item Security (JWT, authentication flow),
-	\item Example of key logic (e.g., cache invalidation or voting process)
-\end{itemize}
+\subsubsection{Authentication and Security}
 
-Layering: Controllers map HTTP to Service methods; Services hold domain logic;
-Repositories persist entities.
-Small events are pushed to clients over a raw WebSocket to keep UIs in sync.
+The application implements stateless JWT authentication with BCrypt password hashing. The /api/auth/login endpoint authenticates users and returns a JWT token, while /api/auth/register creates new accounts. 
+The JwtAuthFilter validates tokens on each request, making the authenticated user available via @AuthenticationPrincipal.
 
+\begin{lstlisting}[language=Java]
+// SecurityConfig (rules excerpt)
+http.csrf(AbstractHttpConfigurer::disable)
+    .sessionManagement(s -> s.sessionCreationPolicy(STATELESS))
+    .authorizeHttpRequests(a -> a
+        .requestMatchers("/api/auth/**", "/rawws").permitAll()
+        .requestMatchers(HttpMethod.GET, "/api/polls/**").permitAll()
+        .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
+        .anyRequest().authenticated());
+\end{lstlisting}
 
-Controller example (vote)
+This configuration allows public access to viewing polls and voting while protecting write operations. 
+CORS is configured for localhost development.
+
+\subsubsection{Core APIs and Real-Time Updates}
+
+The REST API provides two main resource groups: /api/polls (CRUD operations, voting, comments) and /api/users (profile management with authorization checks).
+
 \begin{lstlisting}[language=Java]
 // PollController (excerpt)
 @PostMapping("/{id}/vote")
 public boolean castVote(@PathVariable Integer id,
-                       @RequestParam Integer presentationOrder,
-                       @AuthenticationPrincipal User user) {
- return pollService.castVote(id, user == null ? Optional.empty() : Optional.of(user.getUserId()),
-                             presentationOrder);
+                        @RequestParam Integer presentationOrder,
+                        @AuthenticationPrincipal User user) {
+    return pollService.castVote(id, 
+                                user == null ? Optional.empty() 
+                                            : Optional.of(user.getUserId()),
+                                presentationOrder);
 }
 \end{lstlisting}
 
+When data changes occur, the backend emits Kafka messages and broadcasts lightweight WebSocket notifications to connected clients:
 
-Notify clients after changes
 \begin{lstlisting}[language=Java]
 // on create/update/delete
 RawWebSocketServer.broadcast("pollsUpdated");
 \end{lstlisting}
 
-
+This ensures all clients stay synchronized without polling.
 
 \subsection{Frontend Implementation}
 
-Briefly describe:
+The frontend uses React with TypeScript, bundled via Vite. Key components include CreatePoll, VoteOnPoll, ManagePolls, CommentSection, and Login. 
+The application uses a hybrid communication strategy: REST for data operations and a single WebSocket for real-time events.
 
-\begin{itemize}
-	\item React + TypeScript structure,
-	\item Main components (CreatePoll, VoteOnPoll, CommentSection, Auth),
-	\item Communication with backend (REST + WebSocket),
-    \item State management and authentication handling,
-	\item Short code snippet illustrating an API call or WebSocket usage
-\end{itemize}
-
-The React app fetches data via REST and listens to a single WebSocket for deltas (new polls, comments, votes).
-
-
-WebSocket client
 \begin{lstlisting}[language=TypeScript]
 // ws.ts
-export const onWs = (f:(e:unknown)=>void) => (listeners.add(f), () => listeners.delete(f));
+export const onWs = (f:(e:unknown)=>void) => 
+    (listeners.add(f), () => listeners.delete(f));
+
 export function connectWs() {
- const u = `${location.protocol==="https:"?"wss":"ws"}://${location.hostname}:8080/rawws`;
- const ws = new WebSocket(u);
- ws.onmessage = ev => { try { emit(JSON.parse(ev.data)); } catch { emit(ev.data); } };
+    const u = `${location.protocol==="https:"?"wss":"ws"}://
+                ${location.hostname}:8080/rawws`;
+    const ws = new WebSocket(u);
+    ws.onmessage = ev => { 
+        try { emit(JSON.parse(ev.data)); } 
+        catch { emit(ev.data); } 
+    };
 }
 \end{lstlisting}
 
+The App component listens to WebSocket events and selectively refreshes data:
 
-Integrating updates (App)
 \begin{lstlisting}[language=TypeScript]
 // App.tsx
 useEffect(() => onWs(m => {
- if (m === "pollsUpdated") refreshPolls();
- if (m === "commentsUpdated") bumpCommentsVersion(activePollId);
+    if (m === "pollsUpdated") refreshPolls();
+    if (m === "commentsUpdated") bumpCommentsVersion(activePollId);
 }), []);
 \end{lstlisting}
 
-
-Calling the API (vote)
-\begin{lstlisting}[language=TypeScript]
-await fetch(`/api/polls/${id}/vote?presentationOrder=${order}`, { method: "POST" });
-\end{lstlisting}
-
-
-\subsection{Security}
-Stateless JWT protects write operations; selected GET routes are public; CORS allows localhost during development.
-
-
-\begin{lstlisting}[language=Java]
-// SecurityConfig (rules excerpt)
-http.csrf(AbstractHttpConfigurer::disable)
-   .sessionManagement(s -> s.sessionCreationPolicy(STATELESS))
-   .authorizeHttpRequests(a -> a
-     .requestMatchers("/api/auth/**", "/rawws").permitAll()
-     .requestMatchers(HttpMethod.GET, "/api/polls/**").permitAll()
-     .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
-     .anyRequest().authenticated());
-\end{lstlisting}
-
-
+When a poll is created, the UI automatically switches to the "Vote" tab and refreshes, allowing immediate verification. 
+A WebSocketMessages component displays a rolling log of events for development debugging.
+	
 \subsection{Extensibility and Future Work}
-...
+
+The layered architecture and Spring profiles make the system easily extensible. 
+For example creating an app for Ios or Android would primarily involve building a new frontend that consumes the existing REST and WebSocket APIs.
+The modular design ensures incremental feature additions without disrupting existing functionality.
+Security improvements could be made by implementing refresh tokens and stricter CORS policies for production.
