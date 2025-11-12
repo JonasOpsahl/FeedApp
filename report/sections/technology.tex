@@ -2,7 +2,26 @@
 \label{sec:technology}
 
 
-Introduce in (sufficient) depth the key concepts and architecture of the chosen software technology. As part if this, you may consider using a running example to introduce the technology.
+(Introduce in sufficient depth the key concepts and architecture of the chosen software technology. As part of this, you may consider using a running example to introduce the technology.)
+
+At it's hearts, Apache Kafka is a distributed event streaming platform. Think of it as a highly scalable, fault-tolerant, and durable "log file" that different parts of an application can write to and read from simultaneously. The FeedApp uses these core concepts to decouple tasks. When a user votes, the system doesn't immediately try to update every other user's screen. Instead it publihes an "event" to Kafka, and other services (like the WebSocet broadcaster) react to that event.
+
+
+Event:
+
+An event is the most basic unit of data, which represents the fact that something happened. In the FeedApp implementation, this event is represented as a map of string and object that gets serialized into JSON. For example, when a poll is created, the PollEventListener creates an event with the pollId, question and event type. The consumer listens for vote change events, which it recieves as a map containing the pollId and optionOrder.
+
+Producer:
+
+A producer is a client application that writes (publishes) events to a Kafka topic. The ProducerService in the FeedApp implementation is a classic producer implementation. It uses Spring's Kafka Template to send events to a specific topic. This service is used after PollEventListener to send a message after a new poll is successfully saved to the database.
+
+Topic:
+
+
+
+Consumer:
+
+
 
 This part and other parts of the report probably needs to refer to
 figures. Figure~\ref{fig:framework} from \cite{brown:96} just
