@@ -5,11 +5,9 @@ This section summarizes how the FeedApp prototype has been implemented, focusing
 
 \subsection{Setup and Deployment}
 
-The FeedApp prototype runs as a multi-container application orchestrated by Docker Compose with four services: backend (Spring Boot, port 8080), frontend (React/Vite, port 5173), Redis (cache, port 6379), and Kafka (event bus, ports 9092/29092). 
-The backend reads infrastructure dependencies from environment variables: SPRING\_KAFKA\_BOOTSTRAP\_SERVERS=kafka:29092 and SPRING\_REDIS\_HOST=redis.
+The FeedApp prototype runs as a multi-container application orchestrated by Docker Compose with four services: backend (Spring Boot, port 8080), frontend (React/Vite, port 5173), Redis (cache, port 6379), and Kafka (event bus, ports 9092/29092). The backend reads infrastructure dependencies from environment variables: \texttt{SPRING\_KAFKA\_BOOTSTRAP\_SERVERS=kafka:29092} and \texttt{SPRING\_REDIS\_HOST=redis}.
 
-To run locally, developers execute docker compose up -d and access the frontend at http://localhost:5173. 
-The system can be stopped with docker compose down.
+To run locally, developers execute \texttt{docker compose up -d} and access the frontend at \texttt{http://localhost:5173}. The system can be stopped with \texttt{docker compose down}.
 
 \begin{lstlisting}[language=yaml]
 backend:
@@ -24,14 +22,11 @@ The frontend communicates with the backend via REST APIs and maintains a WebSock
 
 \subsection{Backend Implementation}
 
-The backend uses Spring Boot with a layered architecture: Controllers handle HTTP mapping, Services contain business logic, and Repositories manage persistence. 
-The system supports two persistence strategies via Spring profiles: HibernatePollService (JPA/Hibernate for production) and InMemoryPollService (for testing). 
-A CachingPollService decorator adds Redis-based caching with Jedis, improving performance for frequently accessed data like poll results.
+The backend uses Spring Boot with a layered architecture: Controllers handle HTTP mapping, Services contain business logic, and Repositories manage persistence. The system supports two persistence strategies via Spring profiles: \texttt{HibernatePollService} (JPA/Hibernate for production) and \texttt{InMemoryPollService} (for testing). A \texttt{CachingPollService} decorator adds Redis-based caching with Jedis, improving performance for frequently accessed data like poll results.
 
 \subsubsection{Authentication and Security}
 
-The application implements stateless JWT authentication with BCrypt password hashing. The /api/auth/login endpoint authenticates users and returns a JWT token, while /api/auth/register creates new accounts. 
-The JwtAuthFilter validates tokens on each request, making the authenticated user available via @AuthenticationPrincipal.
+The application implements stateless JWT authentication with BCrypt password hashing. The \texttt{/api/auth/login} endpoint authenticates users and returns a JWT token, while \texttt{/api/auth/register} creates new accounts. The \texttt{JwtAuthFilter} validates tokens on each request, making the authenticated user available via \texttt{@AuthenticationPrincipal}.
 
 \begin{lstlisting}[language=Java]
 // SecurityConfig (rules excerpt)
@@ -44,12 +39,11 @@ http.csrf(AbstractHttpConfigurer::disable)
         .anyRequest().authenticated());
 \end{lstlisting}
 
-This configuration allows public access to viewing polls and voting while protecting write operations. 
-CORS is configured for localhost development.
+This configuration allows public access to viewing polls and voting while protecting write operations. CORS is configured for localhost development.
 
 \subsubsection{Core APIs and Real-Time Updates}
 
-The REST API provides two main resource groups: /api/polls (CRUD operations, voting, comments) and /api/users (profile management with authorization checks).
+The REST API provides two main resource groups: \texttt{/api/polls} (CRUD operations, voting, comments) and \texttt{/api/users} (profile management with authorization checks).
 
 \begin{lstlisting}[language=Java]
 // PollController (excerpt)
@@ -73,10 +67,28 @@ RawWebSocketServer.broadcast("pollsUpdated");
 
 This ensures all clients stay synchronized without polling.
 
+\subsubsection{Kafka Integration}
+
+Kafka is used as the backend's event bus to decouple write operations from real-time updates and cache invalidation. When a vote or comment is stored, the service resolves a per-poll topic name (e.g., \texttt{poll.voteChange.<pollId>}) and publishes a compact JSON event using Spring Kafka's \texttt{KafkaTemplate}. A lightweight consumer subscribes to all poll topics using a pattern and reacts by invalidating Redis caches and nudging the WebSocket layer to refresh.
+
+\begin{lstlisting}[language=Java]
+// ProducerService (excerpt)
+public void sendEvent(String topicName, Map<String, Object> data) {
+    kafkaTemplate.send(topicName, data);
+}
+
+// ConsumerService (excerpt)
+@KafkaListener(topicPattern = "poll.voteChange.*", groupId = "poll-app")
+public void onVoteChange(Map<String, Object> event) {
+    // read pollId, invalidate caches, and (optionally) broadcast WS hints
+}
+\end{lstlisting}
+
+The broker address is provided via \texttt{SPRING\_KAFKA\_BOOTSTRAP\_SERVERS} (see Docker Compose). Topics are created or ensured at runtime through a small helper that uses \texttt{KafkaAdmin}.
+
 \subsection{Frontend Implementation}
 
-The frontend uses React with TypeScript, bundled via Vite. Key components include CreatePoll, VoteOnPoll, ManagePolls, CommentSection, and Login. 
-The application uses a hybrid communication strategy: REST for data operations and a single WebSocket for real-time events.
+The frontend uses React with TypeScript, bundled via Vite. Key components include \texttt{CreatePoll}, \texttt{VoteOnPoll}, \texttt{ManagePolls}, \texttt{CommentSection}, and \texttt{Login}. The application uses a hybrid communication strategy: REST for data operations and a single WebSocket for real-time events.
 
 \begin{lstlisting}[language=TypeScript]
 // ws.ts
@@ -94,7 +106,7 @@ export function connectWs() {
 }
 \end{lstlisting}
 
-The App component listens to WebSocket events and selectively refreshes data:
+The \texttt{App} component listens to WebSocket events and selectively refreshes data:
 
 \begin{lstlisting}[language=TypeScript]
 // App.tsx
@@ -104,11 +116,9 @@ useEffect(() => onWs(m => {
 }), []);
 \end{lstlisting}
 
-When a poll is created, the UI automatically switches to the "Vote" tab and refreshes, allowing immediate verification. 
-A WebSocketMessages component displays a rolling log of events for development debugging.
-	
-\subsection{Extensibility and Future Work}
+When a poll is created, the UI automatically switches to the "Vote" tab and refreshes, allowing immediate verification. A \texttt{WebSocketMessages} component displays a rolling log of events for development debugging.
 
+\subsection{Extensibility and Future Work}
 The layered architecture and Spring profiles make the system easily extensible. 
 For example creating an app for Ios or Android would primarily involve building a new frontend that consumes the existing REST and WebSocket APIs.
 The modular design ensures incremental feature additions without disrupting existing functionality.
