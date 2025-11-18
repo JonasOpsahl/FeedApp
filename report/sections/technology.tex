@@ -105,9 +105,8 @@ promoted, ensuring no data loss. This entire process is managed by the KRaft
 controller quorum, which in this 3-node setup consists of all three nodes
 (\texttt{KAFKA\_CONTROLLER\_QUORUM\_VOTERS: '1@kafka-1:9093,...'}).
 
-This part and other parts of the report probably needs to refer to
-figures. Figure~\ref{fig:framework} from \cite{brown:96} just
-illustrates how figure can be included in the report.
+This part of the report aims to follow this software technology evaluation framework. ~\ref{fig:framework} from \cite{brown:96}
+
 
 \begin{figure}[thb]
 	\centering
@@ -143,7 +142,7 @@ This external dependency was known to cause:
 KRaft replaces ZooKeeper by integrating a consensus protocol inside Kafka.
 This was designed to provide simpler operations, massive scalability (to millions of partitions), and near instant, sub-second failover.
 
-Candidate technology 2 is Kafka's peer, RabbitMQ.
+Candidate technology 2 is RabbitMQ.
 RabbitMQ is a traditional message broker with a long heritage rooted in reliable delivey protocols like AMQP.
 It functions as a "smart broker/dumb consumer" platform. The smart broker manages complex, flexible routing via exchanges and actively pushes messages to consumers.
 Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged.
@@ -171,7 +170,67 @@ In this habitat we prioritize low end-to-end latency. The time from an events pu
 
 \subsection{Experiment Design}
 
-Write you hypotheses about what benefits the technology bring and how you can support or reject them via experiments.
+Remove later: Write you hypotheses about what benefits the technology bring and how you can support or reject them via experiments.
+
+Following the descriptive modeling phase, we now design the experiments to empirically evaulate our candidate technologies.
+The goal of this phase is to formulate refutable hypotheses based on our problem domain habitat and design experiments to generate quantitative data to test them.
+
+Our design focuses on getting objective data for our key requirements: throughput, latency and scalability.
+
+\subsubsection{Hypothesis Formulation}
+Our hypotheses are derived directly from the two habitats identified in the FeedApp backend and they key feature deltas between Kafka, which is a log based pull model, and RabbitMQ which is a queue based, push model.
+
+Habitat 1 prioritizes high throughput and scalability.
+
+Hypothesis 1.A (Throughput): In a many producers, high volume workload, Kafka will achieve significantly higher maximum throughput than RabbitMQ before latency thresholds are breadched.
+Here, throughput will be measured as messages per second.
+
+Hypothesis 1.B (Scalability): As the number of producers increases, Kafka's throughput will scale better than RabbitMQ's.
+Here, better scaling will be how much more load can be handled when increasing cluster size.
+
+Habitat 2 prioritizes low end-to-end latency.
+
+Hypothesis 2.A (Low-load latency): In a low message rate workload, RabbitMQ's push model will demonstrate lower p99 end-to-end latency than Kafka's pull model.
+
+Hypothesis 2.B (High-load latency): As the message rate in this habitat increases, Kafka's pull model will become more efficient, and its average latency will become lower than RabbitMQ's, which will suffer from per-message overhead.
+
+\subsubsection{Experiment Design and Workloads}
+To test these hypotheses, we will use the OpenMessaging Benchmark (OMB) framework.
+This provides a standardized, vendor-neutral toolset to conduct repeatable performance tests easily.
+We will configure OMB with two distinct workloads, each designed as a model problem that simulates one of our defined habitats.
+
+Workload 1 for Habitat 1: Ingestion test
+
+The purpose of this workload is to test hypotheses 1.A and 1.B.
+This will be the OMB configuration for this test.
+"INSERT WORKLOAD FILE when i get home"
+We will have many producers, a single topic/exchange, and a low number of consumers.
+This simulates thousands of concurrent users casting votes and creating polls in the FeedApp.
+There are three metrics we wish to capture in this test.
+
+1. Maximum throughput: The highest sustainable message rate each platform can ingest
+
+2. Producer latency (p99): The 99th percentile latency for a producer to successfully publish a message.
+
+3. Scalability curve: Run the test with 1,5 and 10 producer instances to observe how throughput scales.
+
+Workload 2 for Habitat 2: Fan-out test
+
+The purpose of this workload is to test hypotheses 2.A and 2.B.
+The will be the OMB configuration for the test.
+"INSERT WORKLOAD FILE when i get home"
+We will have a single producer and many competing consumers on a shared subscription.
+This simulates real time fanout of poll updates to all connected clients.
+There are two metrics we wish to capture in this test:
+
+1. End-to-end latency (p99): The time from message publish to message receipt by a consumer.
+
+2. Latency vs. Throughput Curve: We will specifically run this workload at varying throughput rates (1000 msg/sec, 10,000 msg/sec and 100,000 msg/sec) to find the crossover point predicted in 2.B.
+
+\subsubsection{Comparative Feature Analysis}
+We acknowledge that our locally run benchmarks will be limited by our specific hardware and test duration. 
+Therefore, as part of our comparative feature analysis, we will supplement out primary findings with a review of existing, larger scale benchmarks published by others.
+This aims to validate our results and provide a broader context for the performance characteristics that we cannot easily reproduce.
 
 \subsection{Experiment Evaluation}
 
