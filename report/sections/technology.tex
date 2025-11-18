@@ -118,8 +118,56 @@ illustrates how figure can be included in the report.
 
 \subsection{Descriptive Modeling}
 
-write where the technology comes from, its history, its context and what problem it solves.
+Remove later: write where the technology comes from, its history, its context and what problem it solves.
 Consider drawing a graph like in \cite{brown:96}.
+
+The purpose of this phase is to establish a formal model for evaluating two candidate technologies, Apache Kafka (in KRaft mode) and RabbitMQ for adoption within our project.
+First, we will define the Technology Domain Genealogy for both candidates.
+This model will establish Kafka (KRaft) as an evolution to its "precursor" (Kafka with ZooKeeper), explaining the problems it was designed to solve.
+It will also define RabbitMQ's distinct architectural heritage.
+Second, we will define our project's Problem Domain Habitat, the specific usage contexts and project needs, to determine which candidate is a better fit.
+
+\subsubsection{Technology Domain Genealogy}
+This model describes the ancestry and core design philosophy of the two competing technologies.
+Candidate technology 1 is Apache Kafka (KRaft mode). Kafka is, as stated earlier, a distributed event streaming platform. Its core architecture is a persistent, immutable log.
+It uses a "dumb broker/smart consumer" model, where the consumers "pull" data by tracking their position using an offset within the log.
+The KRaft mode we are looking at is a significant evolution. Its "precursor" architecture required a separate, external Apache ZooKeeper cluster.
+This external dependency was known to cause:
+
+1. High operational complexity: Requiring the management and security of two separate distributed systems.
+
+2. Scalabiliy bottlenecks: Limiting clusters to tens of thousands of partitions.
+
+3. Slow recovery times: Controller failover and metadata loading were slow.
+
+KRaft replaces ZooKeeper by integrating a consensus protocol inside Kafka.
+This was designed to provide simpler operations, massive scalability (to millions of partitions), and near instant, sub-second failover.
+
+Candidate technology 2 is Kafka's peer, RabbitMQ.
+RabbitMQ is a traditional message broker with a long heritage rooted in reliable delivey protocols like AMQP.
+It functions as a "smart broker/dumb consumer" platform. The smart broker manages complex, flexible routing via exchanges and actively pushes messages to consumers.
+Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged.
+
+\subsubsection{Problem Domain Habitat}
+As defined by the evaluation framework, the "Problem Domain Habitat" describes the specific usage contexts, problem characteristics, and key requirements where the candidate technologies will be deployed.
+Our habitat is the FeedApp backend, a real-time, interactive polling application built on Spring Boot and Java.
+The primary objectives for this habitat are to find a messaging solution that is highly scalable, supports high throughput, and simultaneously provides good (low) latency.
+These objetives can be split into two separate problem domain habitats.
+
+Habitat 1: High-throughput event ingestion
+
+The application must reliably ingest a high volume of events, such as poll creation, comments, and most critically votes from a potentially large and concurrent user base.
+A user action is sent via the web API, processed, and then published as an immutable event by a producer service.
+There are a few key requirements to this problem habitat.
+We prioritize high throughput (handling thousands of writes per second) and scalability (the ability to add more nodes to handle increased load). 
+The durability of these events is critical, as they effecitvely form the application's historical log.
+
+Habitat 2: Real-time asynchronous fan-out
+
+The application must feel responsive and as if event processing happens in real-time, as this is important for a good user experience.
+When a poll-related event is successfully processed, the system must immediately notift all subscribed clients.
+A consumer service listens for new events from a topic, it triggers a notification service, which pushes updates to clients via WebSockets.
+In this habitat we prioritize low end-to-end latency. The time from an events publication to its consuption must be minimal for the application to feel responsive.
 
 \subsection{Experiment Design}
 
