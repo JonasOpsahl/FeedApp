@@ -242,7 +242,7 @@ randomizedPayloadPoolSize: 1000
 subscriptionsPerTopic: 70
 consumerPerSubscription: 1
 producersPerTopic: 1
-producerRate: 100000 # This will vary, 1000,10000,100000
+producerRate: 10000 # This will vary, 100,1000,10000
 consumerBacklogSizeGB: 0
 testDurationMinutes: 3
 \end{lstlisting}
@@ -252,7 +252,7 @@ There are two metrics we wish to capture in this test:
 
 1. End-to-end latency (p99): The time from message publish to message receipt by a consumer.
 
-2. Latency vs. Throughput Curve: We will specifically run this workload at varying throughput rates (1000 msg/sec, 10,000 msg/sec and 100,000 msg/sec) to find the crossover point predicted in 2.B.
+2. Latency vs. Throughput Curve: We will specifically run this workload at varying throughput rates (100 msg/sec, 1000 msg/sec and 10,000 msg/sec) to find the crossover point predicted in 2.B.
 
 \subsubsection{Comparative Feature Analysis}
 We acknowledge that our locally run benchmarks will be limited by our specific hardware and test duration. 
@@ -263,24 +263,120 @@ This aims to validate our results and provide a broader context for the performa
 
 Write about the results of your experiments, either via personal experience reports, quantitative benchmarks, a demostrator case study or a combination of multiple approaches.
 
+The experimental phase was aimed to gather empirical data to validate the suitability of the technologies for the \textbf{FeedApp} high volume ingestion (Habitat 1) and real time fan-out (Habitat 2) requirements.
 
-For some reports you may have to include a table with experimental
-results are other kinds of tables that for instance compares
-technologies. Table~\ref{tab:results} gives an example of how to create a table.
+\subsubsection{Evaluation of Workload 1: Ingestion Performance}
+\begin{figure}[H]
+    \centering
+    % Timeline Stability
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload1_throughput.png}
+        \caption{Throughput Stability over Time}
+    	\label{fig:w1_throughput_time}
+    \end{subfigure}
+    \hfill
+    % Bar Chart Comparison
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload1_throughput_comparison.png}
+        \caption{Average Throughput Comparison}
+        \label{fig:w1_throughput_bar}
+    \end{subfigure}
+    
+    \caption{\textbf{Workload 1 Ingestion Performance.} Comparing the stability and raw average throughput of Kafka vs. RabbitMQ.}
+    \label{fig:w1_throughput_group}
+\end{figure}
+Workload 1 simulated the \textbf{FeedApp} backend receiving a storm of user votes and poll creation events.
+The primary metric for this habitat is throughput (messages/second and MB/s) and producer stability.
+\paragraph{Throuput Analysis} As illustrated in Figure\ref{fig:w1_throughput_group}, the results strongly validate \textbf{Hypothesis 1.A}.
+Apache Kafka demonstrated a significantly higher write capacity than RabbitMQ.\@
+Looking at\ref{fig:w1_throughput_bar}, Kafka maintained a sustained average throughput of approximately 500,259 msg/s. In contrast, RabbitMQ saturated at 116,746 msg/s.
+It is also important to mention that the producer rate was set at 500,000, which suggests that Kafka could reach even higher if this was increased.
+Figure\ref{fig:w1_throughput_time} reveals the stability of this throughput. Kafka (blue line) maintains a near perfectly flat ingestion rate, indicating that the broker was not resource constrained by the producer load.
+RabbitMQ (orange line), while relatively stable, operates at a much lower ceiling, suggesting it hit an internal processing bottleneck, likely the CPU cost of managing exchange routing and per-message persistence.
+Figure\ref{fig:w1_throughput_time} also clearly illustrates the increased throughput capcaity (MB/s) between the two brokers.
 
-\begin{table}[bth]
-	\centering
-	\begin{tabular}{llrrrrrr}
-		Config & Property & States & Edges & Peak & E-Time & C-Time & T-Time
-		\\ \hline \hline
-		22-2 & A   &    7,944  &   22,419  &  6.6  \%  &  7 ms & 42.9\% &  485.7\% \\
-		22-2 & A   &    7,944  &   22,419  &  6.6  \%  &  7 ms & 42.9\% &  471.4\% \\
-		30-2 & B   &   14,672  &   41,611  &  4.9  \%  & 14 ms & 42.9\% &  464.3\% \\
-		30-2 & C   &   14,672  &   41,611  &  4.9  \%  & 15 ms & 40.0\% &  420.0\% \\ \hline
-		10-3 & D   &   24,052  &   98,671  & 19.8  \%  & 35 ms & 31.4\% &  285.7\% \\
-		10-3 & E   &   24,052  &   98,671  & 19.8  \%  & 35 ms & 34.3\% &  308.6\% \\
-		\hline \hline
-	\end{tabular}
-	\caption{Selected experimental results on the communication protocol example.}
-	\label{tab:results}
-\end{table}
+\begin{figure}[H]
+    \centering
+    % Producer Latency
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload1_latency.png}
+        \caption{Producer Publish Latency (p99)}
+        \label{fig:w1_latency}
+    \end{subfigure}
+    \hfill
+    % Consumer Backlog
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload1_backlog_comparison.png}
+        \caption{Consumer Backlog Size (Log Scale)}
+        \label{fig:w1_backlog}
+    \end{subfigure}
+    
+    \caption{\textbf{Workload 1 System Stability.} Correlating producer latency with consumer backlog accumulation.}
+    \label{fig:w1_stability_group}
+\end{figure}
+
+\paragraph{System Stability and Backlog} The cost of RabbitMQ's smart broker architecture becomes evident when analyzing latency and backlogs in Figure\ref{fig:w1_stability_group}.
+Figure\ref{fig:w1_latency} shows the p99 public latency, which is the time it takes for the producer to get an acknowledgement from the broker.
+Kafka consistently acknowledges writes in single-digit milliseconds. RabbitMQ, conversely, exihibits high volatility with p99 latencies oscillating between 500ms and 1,500ms.
+This latency disparity is directly explained by\ref{fig:w1_backlog}. RabbitMQ accumulates a significant consumer backlog, peaking over $10^{5}$ messages.
+Because RabbitMQ stores messages in a queue structure that requires memory management and index updates for every message, the high ingestion rate cause the broker to slow down producers to allow consumers to catch up.
+Kafka, utilizing a sequential append-only log, handled the backlog without impacting producer write latency, effectively decoupling the producer from the consumer.
+
+\textbf{Conclusion on Habitat 1:} \textbf{Hypothesis 1.A is confirmed.}
+In this experiment, Kafka provides approximately 4.2x the throughput of RabbitMQ, with significantly better stability.
+
+\begin{figure}[H]
+    \centering
+    % Low and Medium Load
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload2_stability_100.png}
+        \caption{Low Load (100 msg/s)}
+        \label{fig:w2_100}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload2_stability_1000.png}
+        \caption{Medium Load (1,000 msg/s)}
+        \label{fig:w2_1000}
+    \end{subfigure}
+    
+    \vspace{1em}
+    
+    % High Load
+    \begin{subfigure}[b]{0.6\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figs/workload2_stability_10000.png}
+        \caption{High Load (10,000 msg/s)}
+        \label{fig:w2_10000}
+    \end{subfigure}
+    
+    \caption{\textbf{Workload 2 Fanout Stability.} Evolution of end-to-end latency as throughput increases.}
+    \label{fig:w2_stability_grid}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figs/workload2_latency_curve.png}
+    \caption{\textbf{Latency vs. Throughput (p99).} Comparison of fanout latency scaling. Note the logarithmic scales on both axes.}
+    \label{fig:w2_curve}
+\end{figure}
+
+\subsubsection{Evaluation of Workload 2: Fan-out Performance}
+Workload 2 simulated the real time component of the app, pushing updates to clients. The primary metric here is end-to-end (E2E) latency.
+\paragraph{Low vs. High Load Latency} The results for this workload yield unexpected findings regarding \textbf{Hypothesis 2.A}.
+We hypothesized that RabbitMQ would offer lower latency at low loads due to its push based model.
+However, the data refutes this. As seen in Figure\ref{fig:w2_100}, at a low load of 100 msg/s, Kafka maintains an E2E p99 latency of around 2ms.
+RabbitMQ exhibits a consistent latency floor of 1000ms. The high baseline for RabbitMQ suggests a configuration interaction with the test harness, but it highlights that push does not automatically guarantee lower latency than pull if the persistence guarantees are strict.
+\paragraph{Scalabiliy Under Load} Figure\ref{fig:w2_stability_grid} demonstrates the behavior as load increases to 10,000 msg/s (Figure\ref{fig:w2_10000}). Kafka remains stable with latencies under 20ms.
+RabbitMQ's latency deteriorates further, spiking above 10,000ms.
+The relationship is best summarized further by the logarithmic scale curve in Figure\ref{fig:w2_curve}.
+Kafka's latency growth is linear and shallow, wheras RabbitMQ's latency growth is exponential relative to throughput.
+\textbf{Conclusion on Habitat 2:} \textbf{Hypothesis 2.A is refuted} and \textbf{Hypothesis 2.B is confirmed}.
+Even at low loads, Kafka's efficient zero-copy network transfer and sequential I/O provided lower latencies than RabbitMQ in this benchmark.
+As load increased, Kafka's performance gap widened, proving it to be the more scalable solution for the \textbf{FeedApp's} fan-out requirements.
