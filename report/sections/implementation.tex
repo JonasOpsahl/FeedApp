@@ -22,7 +22,7 @@ The frontend communicates with the backend via REST APIs and maintains a WebSock
 
 \subsection{Backend Implementation}
 
-The backend uses Spring Boot with a layered architecture: Controllers handle HTTP mapping, Services contain business logic, and Repositories manage persistence. The system supports two persistence strategies via Spring profiles: \texttt{HibernatePollService} (JPA/Hibernate for production) and \texttt{InMemoryPollService} (for testing). A \texttt{CachingPollService} decorator adds Redis-based caching with Jedis, improving performance for frequently accessed data like poll results.
+The backend uses Spring Boot with a layered architecture: Controllers handle HTTP mapping, Services contain business logic, and Repositories manage persistence. The system supports two persistence strategies via Spring profiles: \texttt{HibernatePollService} (JPA/Hibernate for production) and \texttt{InMemoryPollService} (for testing). Activate the desired mode with \texttt{spring.profiles.active=in-memory} or \texttt{spring.profiles.active=database} (for example in \texttt{application.properties} or as an environment variable). A \texttt{CachingPollService} decorator adds Redis-based caching with Jedis, improving performance for frequently accessed data like poll results.
 
 \subsubsection{Authentication and Security}
 
@@ -65,7 +65,7 @@ When data changes occur, the backend emits Kafka messages and broadcasts lightwe
 RawWebSocketServer.broadcast("pollsUpdated");
 \end{lstlisting}
 
-This ensures all clients stay synchronized without polling.
+This ensures all clients stay synchronized without polling. Basic unit and integration tests in \texttt{backend/src/test} verify the main flows.
 
 \subsubsection{Kafka Integration}
 
@@ -84,7 +84,7 @@ public void onVoteChange(Map<String, Object> event) {
 }
 \end{lstlisting}
 
-The broker address is provided via \texttt{SPRING\_KAFKA\_BOOTSTRAP\_SERVERS} (see Docker Compose). Topics are created or ensured at runtime through a small helper that uses \texttt{KafkaAdmin}.
+The broker address is provided via \texttt{SPRING\_KAFKA\_BOOTSTRAP\_SERVERS} (see Docker Compose). Topics are created or ensured at runtime through a small helper that uses \texttt{KafkaAdmin}. See Section~\ref{sec:technology} for the Kafka assessment and results.
 
 \subsection{Frontend Implementation}
 
@@ -120,6 +120,6 @@ When a poll is created, the UI automatically switches to the "Vote" tab and refr
 
 \subsection{Extensibility and Future Work}
 The layered architecture and Spring profiles make the system easily extensible. 
-For example creating an app for Ios or Android would primarily involve building a new frontend that consumes the existing REST and WebSocket APIs.
+For example creating an app for iOS or Android would primarily involve building a new frontend that consumes the existing REST and WebSocket APIs.
 The modular design ensures incremental feature additions without disrupting existing functionality.
 Security improvements could be made by implementing refresh tokens and stricter CORS policies for production.
