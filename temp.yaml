@@ -1,0 +1,13 @@
+name: "workload1"
+topics: 1
+partitionsPerTopic: 3
+messageSize: 1024 
+useRandomizedPayloads: true
+randomBytesRatio: 0.5
+randomizedPayloadPoolSize: 1000
+subscriptionsPerTopic: 1
+consumerPerSubscription: 1
+producersPerTopic: 100
+producerRate: 100000
+consumerBacklogSizeGB: 0
+testDurationMinutes: 3
