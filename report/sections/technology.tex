@@ -2,108 +2,93 @@
 \label{sec:technology}
 
 
-(Remove later: Introduce in sufficient depth the key concepts and architecture of the chosen software technology. As part of this, you may consider using a running example to introduce the technology.)
+At its core, Apache Kafka is a distributed event streaming platform acting as a fault-tolerant log.
+The \textbf{FeedApp} uses Kafka to decouple tasks: user votes publish events that trigger asynchronous reactions from services (like the WebSocket broadcaster) rather than blocking immediate updates.
 
-
-At its core, Apache Kafka is a distributed event streaming platform. Think of it
-as a highly scalable, fault-tolerant, and durable log file that different parts
-of an application can write to and read from simultaneously. The \textbf{FeedApp}
-project uses these core concepts to decouple tasks. When a user votes, the
-system does not immediately try to update every other user's screen. Instead, it
-publishes an event to Kafka, and other services (like the WebSocket
-broadcaster) react to that event.
-
-\subsubsection*{Event:}
-An event is the most basic unit of data, representing the
-fact that something happened.
+\paragraph{Event: }
+An event is the most basic unit of data.
 In the \textbf{FeedApp}, an event is a
 \texttt{Map<String, Object>} that gets serialized into JSON, for example, when
-a poll is created, the \textit{PollEventListener} creates an event with the
-\textit{pollId}, \textit{question}, and \textit{eventType}.
+a poll is created, the \texttt{PollEventListener} creates an event with the
+\texttt{pollId}, \texttt{question}, and \texttt{eventType}.
 The consumer listens for vote change events, which it receives
-as a \textit{Map} containing the \textit{pollId} and \textit{optionOrder}.
+as a \texttt{Map} containing the \texttt{pollId} and \texttt{optionOrder}.
 
-\subsubsection*{Topic:}
-A topic is a named category or feed where events are
-stored and published. A cluster can host many topics, and with KRaft
-mode, the number of topics can now scale into the millions\cite{kafka_topics}.
-The \textbf{FeedApp} uses a dynamic topic strategy.
-Instead of one giant \textit{votes} topic, the \textit{PollTopicManager}
-creates a unique topic for every single poll.
-For example, for a poll with ID \textit{10}, the topic name would be
-\textit{poll.voteChange.10}.
+\paragraph{Topic: }
+A category where events are stored.
+\textbf{FeedApp} employs a dynamic strategy: the \\\texttt{PollTopicManager} creates a unique topic for every poll (e.g., \texttt{poll.voteChange.10}) rather than using a single monolithic topic.
+KRaft mode allows this to scale to millions of topics\cite{kafka_topics}.
 
-\subsubsection*{Producer:}
-A producer is a client application that writes
-events to a Kafka topic.
-The \textit{ProducerService} in the FeedApp project is a classic producer,
-using Spring's \textit{KafkaTemplate} to send events.
-This service is used by the \textit{PollEventListener} to send a message
+\paragraph{Producer: }
+A producer is a client application that writes events to a Kafka topic.
+The \\\texttt{ProducerService} in the FeedApp project is a classic producer,
+using Spring's \texttt{KafkaTemplate} to send events.
+This service is used by the \texttt{PollEventListener} to send a message
 after a new poll is successfully saved to the database.
 With the 3-node cluster, the producer (our backend) is given a list
-of all three brokers (\textit{kafka-1:29092,kafka-2:29092,kafka-3:29092})
+of all three brokers (\texttt{kafka-1:29092,kafka-2:29092,kafka-3:29092})
 via its environment variables. The Kafka
 client uses this list to discover the entire cluster.
 
-\subsubsection*{Consumer:}
+\paragraph{Consumer: }
 A consumer is a client application that reads (subscribes
 to) events from one or more Kafka topics.
-The \textit{ConsumerService} acts as the consumer
+The \texttt{ConsumerService} acts as the consumer
 .
 It uses a powerful feature to match the dynamic topic strategy: it listens to a
-\textit{topicPattern} (\textit{poll.voteChange.*}) instead of a fixed topic
+\texttt{topicPattern} (\texttt{poll.voteChange.*}) instead of a fixed topic
 name. This allows it to automatically discover and consume from new poll topics
 as soon as they are created.
 
-\subsubsection*{Consumer Group:}
+\paragraph{Consumer Group: }
 A set of consumers that work together to process events
 from topics. Kafka guarantees that each event in a topic's partition is
 delivered to only one consumer instance within that group.
 The \textbf{FeedApp} defines the consumer group ID
-as \textbf{poll-app} in its \textit{application.properties} file.
+as \textbf{poll-app} in its \texttt{application.properties} file.
 If one were to run multiple instances of the backend service for scalability,
 they would all share this group ID.\@Kafka would then automatically balance the
 load of all the poll topics among them.
 
-\subsubsection*{Partition:}
+\paragraph{Partition: }
 {\sloppy
 Partitions are the core of Kafka's scalability. A topic is
 split into one or more partitions. Each partition is an ordered, immutable log
 of events, which can be hosted on different brokers.
 The \textbf{FeedApp} project makes a specific design
-choice. When the \textit{PollTopicManager} creates a new topic, it is
+choice. When the \texttt{PollTopicManager} creates a new topic, it is
 configured with one partition to guarantee strict event ordering for
 that poll. To match the 3-node cluster's fault-tolerant
 design, the replication factor is set to 3. This is implemented
-by calling \textit{new NewTopic} with the parameters
-\textit{(topicName, 1, (short) 3)}.
+by calling \texttt{new NewTopic} with the parameters
+\texttt{(topicName, 1, (short) 3)}.
 This configuration ensures the single partition is copied to all three brokers,
 providing fault tolerance and high availability.
 }
 
-\subsubsection*{Broker:}
+\paragraph{Broker: }
 A broker is a single Kafka server. Brokers receive messages
 from producers, assign offsets to them, and commit them to the partition log on
 disk, which provides Kafka's durability.
-The provided \textit{docker-compose.yml}
-file defines three distinct broker services: \textit{kafka-1}, \textit{kafka-2},
-and \textit{kafka-3}. Each of these nodes
-is configured with the \textit{broker} role.
+The provided \texttt{docker-compose.yml}
+file defines three distinct broker services: \texttt{kafka-1}, \texttt{kafka-2},
+and \texttt{kafka-3}. Each of these nodes
+is configured with the \texttt{broker} role.
 
-\subsubsection*{Cluster:}
+\paragraph{Cluster: }
 A Kafka cluster is a group of brokers working together to
 provide scalability, availability, and fault tolerance. Partitions are
 replicated on multiple brokers based on the topic's replication factor.
-The three brokers (\textit{kafka-1},
-\textit{kafka-2}, \textit{kafka-3}) form the cluster.
+The three brokers (\texttt{kafka-1},
+\texttt{kafka-2}, \texttt{kafka-3}) form the cluster.
 This is where the concept of a replication factor of 3 becomes reality.
-When \textit{PollTopicManager} creates \textit{poll.voteChange.10} with 3
+When \texttt{PollTopicManager} creates \texttt{poll.voteChange.10} with 3
 replicas, that topic's single partition is copied to all three brokers. One
 broker is elected leader for that partition (handling all writes), while the
 other two are followers.\@ If the leader fails, a follower is
 promoted, ensuring no data loss. This entire process is managed by the KRaft
 controller quorum, which in this 3-node setup consists of all three nodes
-(\textit{KAFKA\_CONTROLLER\_QUORUM\_VOTERS\@: '1@kafka-1:9093,\dots'}).
+(\texttt{KAFKA\_CONTROLLER\_QUORUM\_VOTERS\@: '1@kafka-1:9093,\dots'}).
 
 This part of the report aims to follow this software technology evaluation framework.~\ref{fig:framework}
 
@@ -116,9 +101,6 @@ This part of the report aims to follow this software technology evaluation frame
 \end{figure}
 
 \subsection{Descriptive Modeling}
-
-Remove later: write where the technology comes from, its history, its context and what problem it solves.
-Consider drawing a graph like in\cite{brown:96}.
 
 The purpose of this phase is to establish a formal model for evaluating two candidate technologies, Apache Kafka (in KRaft mode) and RabbitMQ for adoption within our project.
 First, we will define the Technology Domain Genealogy for both candidates.
@@ -152,24 +134,18 @@ Our habitat is the FeedApp backend, a real-time, interactive polling application
 The primary objectives for this habitat are to find a messaging solution that is highly scalable, supports high throughput, and simultaneously provides good (low) latency.
 These objetives can be split into two separate problem domain habitats.
 
-Habitat 1: High-throughput event ingestion
-
-The application must reliably ingest a high volume of events, such as poll creation, comments, and most critically votes from a potentially large and concurrent user base.
+\paragraph{Habitat 1: High-throughput event ingestion} The application must reliably ingest a high volume of events, such as poll creation, comments, and most critically votes from a potentially large and concurrent user base.
 A user action is sent via the web API, processed, and then published as an immutable event by a producer service.
 There are a few key requirements to this problem habitat.
 We prioritize high throughput (handling thousands of writes per second) and scalability (the ability to add more nodes to handle increased load). 
 The durability of these events is critical, as they effecitvely form the application's historical log.
 
-Habitat 2: Real-time asynchronous fan-out
-
-The application must feel responsive and as if event processing happens in real-time, as this is important for a good user experience.
+\paragraph{Habitat 2: Real-time asynchronous fan-out} The application must feel responsive and as if event processing happens in real-time, as this is important for a good user experience.
 When a poll-related event is successfully processed, the system must immediately notift all subscribed clients.
 A consumer service listens for new events from a topic, it triggers a notification service, which pushes updates to clients via WebSockets.
 In this habitat we prioritize low end-to-end latency. The time from an events publication to its consuption must be minimal for the application to feel responsive.
 
 \subsection{Experiment Design}
-
-Remove later: Write you hypotheses about what benefits the technology bring and how you can support or reject them via experiments.
 
 Following the descriptive modeling phase, we now design the experiments to empirically evaulate our candidate technologies.
 The goal of this phase is to formulate refutable hypotheses based on our problem domain habitat and design experiments to generate quantitative data to test them.
@@ -230,7 +206,7 @@ There are three metrics we wish to capture in this test.
 Workload 2 for Habitat 2: Fan-out test
 
 The purpose of this workload is to test hypotheses 2.A and 2.B.
-The will be the OMB configuration for the test.
+This will be the OMB workload configuration for the test.
 \begin{lstlisting}[language=yaml, basicstyle=\ttfamily\small]
 name: "workload2"
 topics: 1
@@ -260,8 +236,6 @@ Therefore, as part of our comparative feature analysis, we will supplement out p
 This aims to validate our results and provide a broader context for the performance characteristics that we cannot easily reproduce.
 
 \subsection{Experiment Evaluation}
-
-Write about the results of your experiments, either via personal experience reports, quantitative benchmarks, a demostrator case study or a combination of multiple approaches.
 
 The experimental phase was aimed to gather empirical data to validate the suitability of the technologies for the \textbf{FeedApp} high volume ingestion (Habitat 1) and real time fan-out (Habitat 2) requirements.
 
