@@ -1,89 +1,150 @@
-% \section{Design}
-% \label{sec:design}
-
-% Around 5 pages about functional aspects of the FeedApp application.
-
-% Concretely, you shall write about 
-
-% \begin{itemize}
-% 	\item the \emph{use cases},
-% 	\item the \emph{domain model}, and
-% 	\item the \emph{architecture} (including applied technologies)
-% \end{itemize}
-
-% Each part shall ideally be accompanied with a graphical representation (diagram).
-
-% You may have a look at the \href{https://github.com/selabhvl/dat250public/blob/master/projectdescription/README.md}{Examples on GitHub}.
-
 \section{Design}
 \label{sec:design}
 
-Around 5 pages about functional aspects of the FeedApp application.
+This section presents the design of the FeedApp system. It covers the main
+functional use cases, the domain model that structures the application's core
+entities, and the overall software architecture. Together, these elements show
+how the system supports real-time behaviour, modular business logic, and scalability. 
+Each part is accompanied by a diagram to provide a high-level structural overview.
 
 \subsection{Use Cases}
 
-Describe:
+FeedApp is an interactive polling platform that allows users to vote on and 
+discuss polls in real time. The system distinguishes between two user roles:
 
 \begin{itemize}
-	\item Main functionality from the user’s perspective,
-	\item Actors: Guest User, Registered User, System,
-	\item Core use cases: Register/Login, Create Poll, Vote, Comment and Managing Polls,
-    \item Brief explanation of real-time updates and visibility (public/private polls)
+    \item \textbf{Anonymous user}: can browse public polls, vote on them, register 
+    a new account, and log in.
+    \item \textbf{Registered user}: has all anonymous permissions and can additionally 
+    create polls, comment on polls, vote on private polls if invited, and manage 
+    polls they have created.
 \end{itemize}
 
-Optional:
+
+For these roles, the following use cases emerge:
 
 \begin{itemize}
-	\item Use Case Diagram (Figure: Use case overview)
+  \item \textbf{Register and log in:} An anonymous user may register by providing a username, 
+  email, and password. Upon successful registration, the system issues a JWT token which is used 
+  for stateless authentication. A registered user can log in at any time to obtain a new token.
+  \item \textbf{Create Poll:} Registered users can create a poll by specifying a question, a set 
+  of options and visibility (public or private). When a poll is created, it is persisted to the 
+  database, a Kafka topic dedicated to that poll's future vote events is created, and a WebSocket 
+  update is broadcast to notify connected clients.
+  \item \textbf{Vote on Poll:} Both anonymous and registered users may vote on public polls. 
+  Private polls are restricted to invited registered users. Voting triggers several actions: 
+  updating the database, publishing a \texttt{voteChange} event to Kafka, invalidating the 
+  relevant Redis cache entry and broadcasting a WebSocket signal so that all clients refresh 
+  their displayed results.
+  \item \textbf{Comment:} Registered users may write comments on polls and reply to existing comments.
+  \item \textbf{Manage Polls:}Poll creators may add extra options or delete their own polls. 
+  Deletions cascade appropriately, removing options, votes, and comments associated with the poll.
 \end{itemize}
+
+A simplified use case diagram is shown in Figure~\ref{fig:usecase}.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[scale=0.74]{figs/design/usecase_diagram.pdf}
+	\caption{Use Case Diagram }
+	\label{fig:usecase}
+\end{figure}
 
 
 \subsection{Domain Model}
 
+The domain model captures the core business concepts of FeedApp and describes how polls, users, 
+votes, and comments relate to each other. These entities are implemented as JPA \texttt{@Entity} 
+classes in the Spring Boot backend and persisted using Hibernate. The model is designed around 
+aggregate boundaries, allowing the application to remain modular and scalable.
 
-Describe:
+\subsubsection*{User}
+The \texttt{User} entity represents a registered account with a unique identifier, username,
+email address, and password hash. A user may create multiple polls, vote and comment.
+In the case of anonymous voting, the \texttt{Vote} entity stores no user reference, 
+making the user-vote relationship optional. A \texttt{User} may create many polls.
 
-\begin{itemize}
-	\item Core domain entities (User, Poll, Vote, VoteOption, Comment(?)),
-	\item Relationships between them (one-to-many, many-to-one),
-	\item Persistence through JPA/Hibernate
-\end{itemize}
+\subsubsection*{Poll}
+The \texttt{Poll} entity represents a question created by a user. It contains metadata such as 
+visibility (public or private), validity period and a collection of vote options and comments. 
+A \texttt{Poll} can have two to many \texttt{VoteOptions} and one to many \texttt{Comments}.
 
-Optional:
+\subsubsection*{Vote}
+The \texttt{Vote} entity represents an individual vote cast on a specific \texttt{VoteOption}. Votes
+reference both the associated \texttt{VoteOption} and the (optional) user who cast the vote.
 
-\begin{itemize}
-	\item UML Class Diagram (Figure: Domain Model Overview)
-	
-	Show main entities, attributes, and associations
-\end{itemize}
+\subsubsection*{VoteOption}
+The \texttt{VoteOption} entity represents a selectable option for a poll. A poll must have at least two 
+options, and each option is uniquely identified by its \texttt{pollID}. A \texttt{VoteOption} 
+may receive many \texttt{Votes}.
+
+\subsubsection*{Comment}
+The \texttt{Comment} entity represents text written by a user connected to a \texttt{Poll}. Comments 
+support nested replies through a recursive \texttt{parent} relationship. A \texttt{Comment} is of 
+course written by exactly one \texttt{User}, and may have nested child (comments via its 
+\texttt{parent} field). Comments are deleted automatically if their parent or poll is removed.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.7\linewidth]{figs/design/domain_model.png}
+	\caption{Domain Model overview.}
+	\label{fig:domainmodel}
+\end{figure}
 
 
-\subsection{Architecture (including applied technologies)}
 
-Describe:
+\subsection{Architecture}
 
-\begin{itemize}
-	\item High-level architecture (frontend–backend–infrastructure),
-	\item Backend layers: Controller, Service, Repository,
-	\item Key technologies: Spring Boot, H2, Redis, Kafka, WebSocket, JWT,
-	\item Frontend technologies: React, TypeScript, REST API communication,
-	\item Interaction between components (data flow from frontend to backend),
-\end{itemize}
+The architecture of FeedApp follows a layered and event-driven design. The system is divided into 
+a React/TypeScript frontend, a Spring Boot backend and supporting infrastructure services (H2, 
+Redis, Kafka) orchestrated using Docker Compose. The design ensures clear separation, maintains 
+responsiveness, and enables horizontal scalability. Figure~\ref{fig:architecture} shows an 
+overview of the main components.
 
-Optional:
+\subsubsection*{Frontend (React + TypeScript)}    
+The user interface of the application. It communicates with the backend using REST API calls for 
+CRUD operations, and a persistent WebSocket connection for real-time updates. The frontend never 
+accesses data directly. The UI listens for events such as \texttt{pollsUpdated} or 
+\texttt{commentsUpdated} and refreshes data automatically.
 
-\begin{itemize}
-	\item Architecture Diagram (Figure: System Architecture)
-	
-	Show containers/components (Frontend, Backend, Redis, Kafka, DB, WebSocket)
-\end{itemize}
+\subsubsection*{Backend (Spring Boot)}    
+The backend implements the core application logic. The controllers maps HTTP endpoints to methods in 
+the service layer. The service layer contains domain logic for polls, votes, comments and events. 
+This includes caching, authentication and Kafka integration. The persistence layer uses JPA/Hibernate 
+to store and retrieve entities from the database. The backend also hosts the WebSocket endpoint 
+(\texttt{/rawws}), used to notify clients of changes, and applies stateless JWT-based authentication 
+for all protected routes.
 
-\subsection{Summary}
+\subsubsection*{Infrastructure Layer}
+Several external components support performance, scalability and reliability. The H2 database is a 
+lightweight SQL database used for storing users, polls, options, votes and comments during development.
+The Redis Cache stores precomputed poll results to reduce the database load. Cache entries are invalidated 
+when related Kafka events are consumed. Kafka clusters are used as a distributed event log for publishing 
+vote events. It decouples producers and consumers and enables potential future scaling of services.
 
-Summarize:
+\subsubsection*{Docker}
+FeedApp is packaged and executed as a multi-container system using Docker and Docker Compose. Each major 
+component of the architecture runs in its own container, ensuring a reproducible and uniform environment. 
+The frontend and backend are published as public Docker Hub images (erlendandre/feedapp-frontend and 
+erlendandre/feedapp-backend), allowing anyone to start the full system with a single command. Redis and Kafka 
+rely on standard official images, while Kafka is deployed as a three-node replicated cluster, matching the design 
+principles explored in the technology assessment. All containers are orchestrated through a docker-compose.yml 
+file that wires together the network, environment variables (e.g., Kafka bootstrap servers, Redis host), and 
+persistent volumes for Kafka. This containerized structure simplifies onboarding, testing, and scaling, and reflects 
+modern deployment practices for distributed, event-driven applications.
 
-\begin{itemize}
-	\item How the design supports scalability, modularity, and real-time updates,
-	\item The rationale behind chosen technologies,
-	\item How the design connects to later implementation and deployment steps
-\end{itemize}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.92\linewidth]{figs/design/system_architecture.pdf}
+  \caption{System Architecture}
+  \label{fig:architecture}
+\end{figure}
+
+The FeedApp design uses a combination of layered backend logic and event-driven infrastructure. Redis improves 
+read performance, Kafka ensures decoupled communication and future extensibility, and WebSockets provide 
+responsive updates. All components run in isolated Docker containers, and the use of public Docker Hub 
+images ensures that the entire system can be reproduced consistently on any machine. The three-node Kafka cluster 
+deployed through Docker Compose demonstrates real distributed behaviour, including replication and fault tolerance, 
+in a controlled development environment. Together, these design choices result in a modular, scalable, and extensible 
+architecture that illustrates key concepts of contemporary distributed systems and serves as a solid educational 
+example for event-driven application design.
