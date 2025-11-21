@@ -1,9 +1,21 @@
-\section{Conclusions}
+\section{Conclusion}
 \label{sec:conclusion}
 
-Concludes on the project, including the technology, its maturity,
-learning curve, and quality of the documentation.
+This project resulted in a working real-time polling application built with Spring Boot, React, Redis, WebSockets,
+Docker, and a messaging layer implemented using Kafka. Throughout the process we were able to evaluate how these 
+technologies behave in a realistic application scenario where users create polls, vote, and discuss results, 
+and where updates must be delivered instantly to all connected clients.
 
-The references used throughput the report should constitute a well
-chosen set of references, suitable for someone interesting in learning
-about the technology.
+Kafka and RabbitMQ have different strengths. RabbitMQ was simpler to install and understand, making it well suited 
+for quick prototypes and smaller systems. Kafka required more conceptual understanding, such as topics, partitions, 
+consumer groups, and replication, but in return offered higher throughput and more stable performance when write 
+load increased. Our benchmark results reflected this: Kafka processed far more messages per second and maintained 
+lower latency under heavy load, while RabbitMQ showed more latency variation when many updates were fanned out to users.
+
+The learning curve matched these differences. RabbitMQ’s queue and exchange model is easy to understand, helped by 
+accessible documentation and examples. Kafka took more time to learn because of its log-based architecture and cluster 
+concepts, but the documentation and Spring Boot integration guides were clear and detailed. Once understood, Kafka’s 
+model fit well with the event-driven parts of FeedApp, especially the topic-per-poll approach.
+
+Overall, this project gave us practical experience with event-driven design, real-time updates, caching, and 
+containerized deployment.

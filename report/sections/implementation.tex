@@ -119,7 +119,5 @@ useEffect(() => onWs(m => {
 When a poll is created, the UI automatically switches to the "Vote" tab and refreshes, allowing immediate verification. A \texttt{WebSocketMessages} component displays a rolling log of events for development debugging.
 
 \subsection{Extensibility and Future Work}
-The layered architecture and Spring profiles make the system easily extensible. 
-For example creating an app for iOS or Android would primarily involve building a new frontend that consumes the existing REST and WebSocket APIs.
-The modular design ensures incremental feature additions without disrupting existing functionality.
-Security improvements could be made by implementing refresh tokens and stricter CORS policies for production.
+
+FeedApp can be extended with friend lists, public poll publishing, upvoting/downvoting, poll sharing, and new poll types (e.g., ranked-choice). The layered architecture and Spring profiles keep these additions low risk: most changes stay in services or new controllers. A future iOS or Android app would mainly be another frontend that reuses the existing REST and WebSocket APIs. The modular design supports incremental growth without breaking current functionality. Security can be strengthened with refresh tokens and stricter production CORS policies.

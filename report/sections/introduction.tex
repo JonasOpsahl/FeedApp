@@ -10,7 +10,7 @@ The system has two parts: a backend and a frontend. The backend exposes REST end
 \subsection{Technology Stack Summary}
 Backend: Java with Spring Boot and Spring Security for REST APIs, validation and auth. During development we store data in an in-memory H2 database. Redis is used as a cache for frequently read data like poll results. Kafka is our messaging backbone for domain events (for example, a vote that was cast).\newline
 Frontend: React with TypeScript for a simple, component-based UI that reacts to server events over a single WebSocket connection.\newline
-Infra: Docker and Docker Compose run all services with the same settings on any machine.
+Docker and CI: Docker and Docker Compose run all services with the same settings on any machine, and a GitHub Actions workflow builds and tests the full stack on every push so it always builds the same way and issues are caught quickly.
 
 We chose this stack because it is familiar, easy to set up, and supports horizontal growth. Kafka helps decouple writes from notifications, Redis improves read performance, and WebSockets keep the UI responsive.
 
@@ -19,3 +19,4 @@ The prototype supports creating polls, voting with instant updates, and threaded
 
 \subsection{Report Organization}
 This report is organized as follows. Section~\ref{sec:design} explains the design: main use cases, the domain model, and the overall architecture. Section~\ref{sec:technology} introduces Kafka (and the supporting tech), and outlines our experiment plan and assumptions. Section~\ref{sec:implementation} describes how we built the prototype, how services talk to each other, and how to run it locally. Finally, Section~\ref{sec:conclusion} sums up what we learned and lists possible next steps.
+\medskip
