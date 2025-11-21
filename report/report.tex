@@ -84,24 +84,24 @@
 Live polling applications need to keep data consistent across many users 
 while staying fast and responsive. FeedApp is a real-time polling platform 
 where users can create polls, vote, and discuss results in comment threads, 
-with updates appearing instantly for everyone. This project evaluates Apache 
-Kafka against RabbitMQ as event streaming platforms for handling real-time 
-updates in web applications. We built the system with a Spring Boot backend 
+with updates appearing instantly for everyone. This report compares RabbitMQ 
+(message queuing) and Kafka (
+event sourcing) for handling real-time updates in a web application. Our aim 
+is to show how a queue-oriented broker differs from a log-centric event stream 
+in throughput, latency, scaling, and fan-out. We built the system with a Spring Boot backend 
 and React frontend, using Kafka's topic-per-poll approach along with Redis 
-for caching and WebSockets for push notifications. Through benchmarking with 
-OpenMessaging Benchmark framework, we tested hypotheses around throughput, 
-scalability, and latency under different workloads simulating high-volume 
-vote ingestion and real-time fan-out to clients. Our experiments showed that 
-Kafka achieved significantly higher throughput and better horizontal scaling 
-for write-heavy workloads, while RabbitMQ demonstrated lower latency at low 
-message rates due to its push model. However, Kafka's performance advantage 
-increased under high load as RabbitMQ's per-message overhead became more 
-costly. Creating separate Kafka topics for each poll worked well for keeping 
-things isolated, though it required extra management overhead. The main 
-takeaways from this project are understanding the throughput-latency trade-offs 
-between log-based and queue-based messaging systems, when event-driven 
-architectures like Kafka justify their complexity, and how to handle cache 
-invalidation properly in distributed systems.
+for caching and WebSockets for push notifications. We used the OpenMessaging
+Benchmark to test both systems under different loads that simulate many votes 
+coming in and updates being pushed to users. In our tests, Kafka handled more 
+messages per second and scaled better when there were lots of writes, and 
+RabbitMQ did not have lower latency at low message rates in our setup. As the 
+load increased, Kafka pulled ahead, and RabbitMQ’s per‑message overhead became 
+a bottleneck. Using one Kafka topic per
+poll kept events clean and isolated, but it added some extra management work. 
+Overall, we learned about the trade‑off between throughput and latency in 
+log‑based (Kafka) vs queue‑based (RabbitMQ) systems, when the extra complexity 
+of an event‑driven design makes sense, and why careful cache invalidation matters 
+in a distributed app.
 \end{abstract}
 
 \clearpage
