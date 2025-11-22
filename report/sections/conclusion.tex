@@ -1,21 +1,22 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This project resulted in a working real-time polling application built with Spring Boot, React, Redis, WebSockets,
-Docker, and a messaging layer implemented using Kafka. Throughout the process we were able to evaluate how these 
-technologies behave in a realistic application scenario where users create polls, vote, and discuss results, 
-and where updates must be delivered instantly to all connected clients.
+This project resulted in a working real-time polling app and a comparison of Kafka and RabbitMQ as 
+messaging solutions for event-driven systems. The technologies work differently and have different strengths. 
+RabbitMQ uses a simpler model based on queues and exchanges, which makes it easier to understand and suitable for 
+smaller or more straightforward setups. Kafka requires learning more concepts, such as partitions, replication, 
+and consumer groups, but is designed to handle larger amounts of data and more demanding workloads.
 
-Kafka and RabbitMQ have different strengths. RabbitMQ was simpler to install and understand, making it well suited 
-for quick prototypes and smaller systems. Kafka required more conceptual understanding, such as topics, partitions, 
-consumer groups, and replication, but in return offered higher throughput and more stable performance when write 
-load increased. Our benchmark results reflected this: Kafka processed far more messages per second and maintained 
-lower latency under heavy load, while RabbitMQ showed more latency variation when many updates were fanned out to users.
+Our experiments provided a clear contrast in how the two technologies behave 
+under the kinds of workloads a live polling service must handle. Kafka 
+consistently delivered higher throughput and more stable latency as load increased, 
+while RabbitMQ showed larger spikes and less predictable performance when both write 
+pressure and fan-out activity rose. This makes Kafka a better fit for high-volume, 
+real-time feeds like the one FeedApp demonstrates.
 
-The learning curve matched these differences. RabbitMQ’s queue and exchange model is easy to understand, helped by 
-accessible documentation and examples. Kafka took more time to learn because of its log-based architecture and cluster 
-concepts, but the documentation and Spring Boot integration guides were clear and detailed. Once understood, Kafka’s 
-model fit well with the event-driven parts of FeedApp, especially the topic-per-poll approach.
-
-Overall, this project gave us practical experience with event-driven design, real-time updates, caching, and 
-containerized deployment.
+The project also strengthened our understanding of event-driven design, 
+caching, and containerized deployment. The evaluation showed that technology 
+choice depends on the scale and responsiveness requirements of the system: RabbitMQ 
+remains an accessible and capable broker, but for high-throughput, low-latency event 
+streams, Kafka offers clear advantages. Overall, the prototype and benchmark results provide 
+direction for how FeedApp could be taken further toward a real production setup.

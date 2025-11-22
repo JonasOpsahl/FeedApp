@@ -2,21 +2,44 @@
 \label{sec:introduction}
 
 \subsection{Project Overview}
-FeedApp is a small web app for running live polls. Users can create a poll with options, vote, and discuss the results in a comment thread. The goal is to make collecting feedback simple and fast. Instead of refreshing the page or counting results by hand, the app pushes updates in real time so everyone sees new votes and comments right away.
-\bigskip
+FeedApp is a small web app for running live polls. Users can create polls, vote, and discuss 
+results, and the app updates everyone in real time so new votes and comments appear instantly. 
+The goal is to make collecting and viewing feedback simple and fast.
 
-The system has two parts: a backend and a frontend. The backend exposes REST endpoints for polls, votes and comments, and it emits events when data changes. The frontend shows the latest state, listens for WebSocket messages, and keeps the UI in sync with the server. The project is also used to try out event-driven ideas and see how they scale when more users join.
+The system has two main parts: a backend and a frontend. The backend provides REST endpoints for 
+polls, votes, and comments, and emits events when data changes. The frontend displays the current state, 
+listens for WebSocket updates, and stays synchronized with the server. The project also serves as a way to 
+explore event-driven patterns and how they scale as more users interact with the system.
 
 \subsection{Technology Stack Summary}
-Backend: Java with Spring Boot and Spring Security for REST APIs, validation and auth. During development we store data in an in-memory H2 database. Redis is used as a cache for frequently read data like poll results. Kafka is our messaging backbone for domain events (for example, a vote that was cast).\newline
-Frontend: React with TypeScript for a simple, component-based UI that reacts to server events over a single WebSocket connection.\newline
-Docker and CI: Docker and Docker Compose run all services with the same settings on any machine, and a GitHub Actions workflow builds and tests the full stack on every push so it always builds the same way and issues are caught quickly.
+Backend: Java with Spring Boot and Spring Security for REST APIs, validation, and authentication. 
+During development we use an in-memory H2 database, with Redis as a cache for frequently accessed poll data. Kafka handles domain events such as vote changes.
 
-We chose this stack because it is familiar, easy to set up, and supports horizontal growth. Kafka helps decouple writes from notifications, Redis improves read performance, and WebSockets keep the UI responsive.
+Frontend: React with TypeScript provides a simple, component-based UI that updates in real 
+time through a single WebSocket connection.
+
+Docker and CI: Docker Compose ensures consistent local deployment of all services, 
+and GitHub Actions builds and tests the full stack on every push to maintain reliability.
+
+We chose this stack because it is familiar, easy to set up, and scales horizontally. 
+Kafka decouples writes from notifications, Redis improves read performance, and WebSockets keep the UI responsive
 
 \subsection{Project Outcome}
-The prototype supports creating polls, voting with instant updates, and threaded comments with edits and replies. We also compared Kafka with RabbitMQ for the event stream. In short: Kafka handled higher throughput and scaled better under heavy write load, while RabbitMQ showed slightly lower latency at low message rates. Our topic-per-poll approach in Kafka kept events neatly separated, and Redis caching reduced repeated work on popular polls. Everything is containerized so the full stack starts with one command.
+The prototype supports creating polls, casting votes with instant updates, 
+and adding threaded comments. We also compared Kafka and RabbitMQ as messaging 
+systems for the event stream. In our experiments, Kafka outperformed RabbitMQ in 
+both throughput and latency, remaining stable even under heavy write and fan-out 
+load. RabbitMQ was simpler to work with but showed higher and more variable latency 
+across all workloads. Using one topic per poll kept Kafka events organized, and Redis 
+reduced repeated work on popular polls. The entire system is containerized so the full 
+stack can be started with a single command.
 
 \subsection{Report Organization}
-This report is organized as follows. Section~\ref{sec:design} explains the design: main use cases, the domain model, and the overall architecture. Section~\ref{sec:technology} introduces Kafka (and the supporting tech), and outlines our experiment plan and assumptions. Section~\ref{sec:implementation} describes how we built the prototype, how services talk to each other, and how to run it locally. Finally, Section~\ref{sec:conclusion} sums up what we learned and lists possible next steps.
+This report is organized as follows. Section~\ref{sec:design} 
+explains the design: main use cases, the domain model, and the overall 
+architecture. Section~\ref{sec:technology} introduces Kafka (and the supporting tech), 
+and outlines our experiment plan and assumptions. Section~\ref{sec:implementation} 
+describes how we built the prototype, how services talk to each other, and how to run 
+it locally. Finally, Section~\ref{sec:conclusion} sums up what we learned and lists 
+possible next steps.
 \medskip
