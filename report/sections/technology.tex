@@ -6,89 +6,37 @@ At its core, Apache Kafka is a distributed event streaming platform acting as a 
 The \textbf{FeedApp} uses Kafka to decouple tasks: user votes publish events that trigger asynchronous reactions from services (like the WebSocket broadcaster) rather than blocking immediate updates.
 
 \paragraph{Event: }
-An event is the most basic unit of data.
-In the \textbf{FeedApp}, an event is a
-\texttt{Map<String, Object>} that gets serialized into JSON, for example, when
-a poll is created, the \texttt{PollEventListener} creates an event with the
-\texttt{pollId}, \texttt{question}, and \texttt{eventType}.
-The consumer listens for vote change events, which it receives
-as a \texttt{Map} containing the \texttt{pollId} and \texttt{optionOrder}.
+An event is the most basic unit of data representing a state change. In FeedApp, a `Vote Cast' is an event.
+It is not just a database update; it is an immutable record containing the \texttt{pollId} and the option selected, which triggers reactions across the system.
 
 \paragraph{Topic: }
-A category where events are stored.
-\textbf{FeedApp} employs a dynamic strategy: the \\\texttt{PollTopicManager} creates a unique topic for every poll (e.g., \texttt{poll.voteChange.10}) rather than using a single monolithic topic.
-KRaft mode allows this to scale to millions of topics\cite{kafka_topics}.
+A topic is a category where events are stored.
+FeedApp utilizes a `dynamic topic' strategy where every unique poll gets its own topic (e.g., \texttt{poll.voteChange.10}).
+This ensures that events for a specific poll are isolated, allowing consumers to subscribe only to active polls rather than filtering through a monolithic stream of all system data.
+
 
 \paragraph{Producer: }
-A producer is a client application that writes events to a Kafka topic.
-The \\\texttt{ProducerService} in the FeedApp project is a classic producer,
-using Spring's \texttt{KafkaTemplate} to send events.
-This service is used by the \texttt{PollEventListener} to send a message
-after a new poll is successfully saved to the database.
-With the 3-node cluster, the producer (our backend) is given a list
-of all three brokers (\texttt{kafka-1:29092,kafka-2:29092,kafka-3:29092})
-via its environment variables. The Kafka
-client uses this list to discover the entire cluster.
+A producer is the client application that writes events to the log.
+In our architecture, the Spring Boot backend acts as the producer.
+When a user submits a vote via the REST API, the producer publishes this event to the cluster, decoupling the immediate user request from the downstream processing.
 
-\paragraph{Consumer: }
-A consumer is a client application that reads (subscribes
-to) events from one or more Kafka topics.
-The \texttt{ConsumerService} acts as the consumer
-.
-It uses a powerful feature to match the dynamic topic strategy: it listens to a
-\texttt{topicPattern} (\texttt{poll.voteChange.*}) instead of a fixed topic
-name. This allows it to automatically discover and consume from new poll topics
-as soon as they are created.
 
-\paragraph{Consumer Group: }
-A set of consumers that work together to process events
-from topics. Kafka guarantees that each event in a topic's partition is
-delivered to only one consumer instance within that group.
-The \textbf{FeedApp} defines the consumer group ID
-as \textbf{poll-app} in its \texttt{application.properties} file.
-If one were to run multiple instances of the backend service for scalability,
-they would all share this group ID.\@Kafka would then automatically balance the
-load of all the poll topics among them.
+\paragraph{Consumer and Consumer Group: }
+Consumers read events from topics.
+In FeedApp, the WebSocket service acts as a consumer.
+It listens to vote events to broadcast real-time updates to the frontend.
+By placing these consumers in a \textbf{Consumer Group} (configured as poll-app), Kafka ensures that if we scale the backend to multiple instances, the processing of poll topics is automatically load-balanced among them.
 
-\paragraph{Partition: }
-{\sloppy
-Partitions are the core of Kafka's scalability. A topic is
-split into one or more partitions. Each partition is an ordered, immutable log
-of events, which can be hosted on different brokers.
-The \textbf{FeedApp} project makes a specific design
-choice. When the \texttt{PollTopicManager} creates a new topic, it is
-configured with one partition to guarantee strict event ordering for
-that poll. To match the 3-node cluster's fault-tolerant
-design, the replication factor is set to 3. This is implemented
-by calling \texttt{new NewTopic} with the parameters
-\texttt{(topicName, 1, (short) 3)}.
-This configuration ensures the single partition is copied to all three brokers,
-providing fault tolerance and high availability.
-}
+\paragraph{Partition and Replication: }
+Partitions allow topics to be split across multiple brokers for scalability, while replication ensures fault tolerance.
+For \textbf{FeedApp}, we configure our poll topics with a single partition to guarantee strict ordering of votes (ensuring the vote count is always accurate sequentially) but replicate that partition across three nodes.
+This ensures that even if one broker fails, the poll data remains available.
 
-\paragraph{Broker: }
-A broker is a single Kafka server. Brokers receive messages
-from producers, assign offsets to them, and commit them to the partition log on
-disk, which provides Kafka's durability.
-The provided \texttt{docker-compose.yml}
-file defines three distinct broker services: \texttt{kafka-1}, \texttt{kafka-2},
-and \texttt{kafka-3}. Each of these nodes
-is configured with the \texttt{broker} role.
 
-\paragraph{Cluster: }
-A Kafka cluster is a group of brokers working together to
-provide scalability, availability, and fault tolerance. Partitions are
-replicated on multiple brokers based on the topic's replication factor.
-The three brokers (\texttt{kafka-1},
-\texttt{kafka-2}, \texttt{kafka-3}) form the cluster.
-This is where the concept of a replication factor of 3 becomes reality.
-When \texttt{PollTopicManager} creates \texttt{poll.voteChange.10} with 3
-replicas, that topic's single partition is copied to all three brokers. One
-broker is elected leader for that partition (handling all writes), while the
-other two are followers.\@ If the leader fails, a follower is
-promoted, ensuring no data loss. This entire process is managed by the KRaft
-controller quorum, which in this 3-node setup consists of all three nodes
-(\texttt{KAFKA\_CONTROLLER\_QUORUM\_VOTERS\@: '1@kafka-1:9093,\dots'}).
+\paragraph{Broker and Cluster: }
+A broker is a single Kafka server, and a cluster is a group of brokers working together.
+Our setup uses a three-node cluster \texttt{(kafka-1, kafka-2, kafka-3)} managed by the KRaft consensus protocol.
+This mimics a production environment where the system can survive hardware failures without data loss.
 
 This part of the report aims to follow this software technology evaluation framework.~\ref{fig:framework}
 
