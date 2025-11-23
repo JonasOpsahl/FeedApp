@@ -12,15 +12,17 @@ a React/Vite frontend, Redis for caching, and Kafka as the event bus. Infrastruc
 to the backend through environment variables. The most important part of the Compose file is shown below:
 
 \begin{lstlisting}[language=yaml]
+frontend:
+  image: erlendandre/feedapp-frontend:latest
+  ports: ["5173:5173"]
+  depends_on: [backend] 
+
 backend:
+  image: erlendandre/feedapp-backend:latest
   ports: ["8080:8080"]
   environment:
-    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
     - SPRING_REDIS_HOST=redis
-
-frontend:
-  ports: ["5173:5173"]
-  depends_on: [backend]
 \end{lstlisting}
 
 The entire system can be started with:
@@ -106,6 +108,21 @@ public void onVoteChange(Map<String, Object> event) {
 }
 \end{lstlisting}
 
+
+We use PollTopicManager to create Kafka topics dynamically. Whenever a poll is created, 
+we also create a topic for that poll's events. 
+This makes it easy to group events and scale the system. Here is our implementation below:
+
+\begin{lstlisting}[language=Java]
+// PollTopicManager (per-poll topics)
+ public void createPollTopic(Integer pollId) {
+        String topicName = getTopicNameForPoll(pollId);
+        NewTopic topic = new NewTopic(topicName, 1, (short) 3);
+        kafkaAdmin.createOrModifyTopics(topic);
+        logger.info("Topic created successfully.");
+    }
+\end{lstlisting}
+
 This approach separates writes from cache invalidation and real-time UI updates, improving system responsiveness 
 under load.
 
@@ -140,6 +157,8 @@ This pattern keeps the UI responsive with minimal network traffic.
 
 \subsection{Extensibility and Future Work}
 
-The modular architecture allows further development, such as new poll types, sharing features, and improved authentication.  
-A mobile client can reuse the existing REST and WebSocket APIs.  
-Future improvements include stronger production security settings and persistent database storage.
+The modular design makes it straightforward to add new poll types, adding friends, or stronger authentication, 
+and a mobile client could reuse the existing REST and WebSocket APIs. Planned improvements include 
+hardened production security and a durable database. Because local benchmarks are constrained by our
+hardware and short runs, we complement them with published large‑scale results to validate trends and 
+provide broader context for performance characteristics we cannot yet reproduce.

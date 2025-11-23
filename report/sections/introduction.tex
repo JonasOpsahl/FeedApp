@@ -25,14 +25,10 @@ We chose this stack because it is familiar, easy to set up, and scales horizonta
 Kafka decouples writes from notifications, Redis improves read performance, and WebSockets keep the UI responsive
 
 \subsection{Project Outcome}
-The prototype supports creating polls, casting votes with instant updates, 
-and adding threaded comments. We also compared Kafka and RabbitMQ as messaging 
-systems for the event stream. In our experiments, Kafka outperformed RabbitMQ in 
-both throughput and latency, remaining stable even under heavy write and fan-out 
-load. RabbitMQ was simpler to work with but showed higher and more variable latency 
-across all workloads. Using one topic per poll kept Kafka events organized, and Redis 
-reduced repeated work on popular polls. The entire system is containerized so the full 
-stack can be started with a single command.
+We delivered a working end-to-end prototype: users create polls, vote with instant updates, 
+and add threaded comments while all clients stay in sync through Kafka events, Redis caching, 
+and WebSocket notifications. The codebase includes authentication, core REST endpoints, and containerized startup. 
+It provides a clear baseline for the technology evaluation and sets up for possible future implementations.
 
 \subsection{Report Organization}
 This report is organized as follows. Section~\ref{sec:design} 
