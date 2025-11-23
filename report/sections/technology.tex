@@ -35,7 +35,7 @@ This ensures that even if one broker fails, the poll data remains available.
 
 \paragraph{Broker and Cluster: }
 A broker is a single Kafka server, and a cluster is a group of brokers working together.
-Our setup uses a three-node cluster \texttt{(kafka-1, kafka-2, kafka-3)} managed by the KRaft consensus protocol.
+Our setup uses a three-node cluster \texttt{(kafka-1, kafka-2, kafka-3)} managed by the KRaft consensus protocol\cite{KRaft_mode}.
 This mimics a production environment where the system can survive hardware failures without data loss.
 
 This part of the report aims to follow this software technology evaluation framework.~\ref{fig:framework}
@@ -61,7 +61,7 @@ This model describes the ancestry and core design philosophy of the two competin
 Candidate technology 1 is Apache Kafka (KRaft mode). Kafka is, as stated earlier, a distributed event streaming platform. Its core architecture is a persistent, immutable log.
 It uses a dumb broker/smart consumer model, where the consumers pull data by tracking their position using an offset within the log.
 The KRaft mode we are looking at is a significant evolution. Its precursor architecture required a separate, external Apache ZooKeeper cluster.
-This external dependency was known to cause:
+This external dependency was known to cause:\cite{kraft_vs_zookeeper}
 
 1. High operational complexity: Requiring the management and security of two separate distributed systems.
 
@@ -74,7 +74,7 @@ This was designed to provide simpler operations, massive scalability (to million
 
 Candidate technology 2 is RabbitMQ.\@ RabbitMQ is a traditional message broker with a long heritage rooted in reliable delivey protocols like AMQP.\@
 It functions as a smart broker/dumb consumer platform. The smart broker manages complex, flexible routing via exchanges and actively pushes messages to consumers.
-Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged.
+Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged.\cite{rabbitmq}
 
 \subsubsection{Problem Domain Habitat}
 As defined by the evaluation framework, the Problem Domain Habitat describes the specific usage contexts, problem characteristics, and key requirements where the candidate technologies will be deployed.\cite{brown:96}
@@ -105,11 +105,11 @@ Our hypotheses are derived directly from the two habitats identified in the Feed
 
 Habitat 1 prioritizes high throughput and scalability.
 
-Hypothesis 1.A (Throughput): In a many producers, high volume workload, Kafka will achieve significantly higher maximum throughput than RabbitMQ before latency thresholds are breadched.
+Hypothesis 1.A (Throughput): In a many producers, high volume workload, Kafka will achieve significantly higher maximum throughput than RabbitMQ before latency thresholds are breached.
 Here, throughput will be measured as messages per second.
 
 Hypothesis 1.B (Scalability): As the number of producers increases, Kafka's throughput will scale better than RabbitMQ's.
-Here, better scaling will be how much more load can be handled when increasing cluster size.
+Here, better scaling will be how much more load can be handled when increasing number of producers.
 
 Habitat 2 prioritizes low end-to-end latency.
 
@@ -206,13 +206,13 @@ The experimental phase was aimed to gather empirical data to validate the suitab
 \end{figure}
 Workload 1 simulated the \textbf{FeedApp} backend receiving a storm of user votes and poll creation events.
 The primary metric for this habitat is throughput (messages/second and MB/s) and producer stability.
-\paragraph{Throuput Analysis} As illustrated in Figure\ref{fig:w1_throughput_group}, the results strongly validate \textbf{Hypothesis 1.A}.
+\paragraph{Throuput Analysis} As illustrated in Figure~\ref{fig:w1_throughput_group}, the results strongly validate \textbf{Hypothesis 1.A}.
 Apache Kafka demonstrated a significantly higher write capacity than RabbitMQ.\@
-Looking at\ref{fig:w1_throughput_bar}, Kafka maintained a sustained average throughput of approximately 500,259 msg/s. In contrast, RabbitMQ saturated at 116,746 msg/s.
+Looking at~\ref{fig:w1_throughput_bar}, Kafka maintained a sustained average throughput of approximately 500,259 msg/s. In contrast, RabbitMQ saturated at 116,746 msg/s.
 It is also important to mention that the producer rate was set at 500,000, which suggests that Kafka could reach even higher if this was increased.
-Figure\ref{fig:w1_throughput_time} reveals the stability of this throughput. Kafka (blue line) maintains a near perfectly flat ingestion rate, indicating that the broker was not resource constrained by the producer load.
+Figure~\ref{fig:w1_throughput_time} reveals the stability of this throughput. Kafka (blue line) maintains a near perfectly flat ingestion rate, indicating that the broker was not resource constrained by the producer load.
 RabbitMQ (orange line), while relatively stable, operates at a much lower ceiling, suggesting it hit an internal processing bottleneck, likely the CPU cost of managing exchange routing and per-message persistence.
-Figure\ref{fig:w1_throughput_time} also clearly illustrates the increased throughput capcaity (MB/s) between the two brokers.
+Figure~\ref{fig:w1_throughput_time} also clearly illustrates the increased throughput capcaity (MB/s) between the two brokers.
 
 \begin{figure}[H]
     \centering
@@ -236,10 +236,10 @@ Figure\ref{fig:w1_throughput_time} also clearly illustrates the increased throug
     \label{fig:w1_stability_group}
 \end{figure}
 
-\paragraph{System Stability and Backlog} The cost of RabbitMQ's smart broker architecture becomes evident when analyzing latency and backlogs in Figure\ref{fig:w1_stability_group}.
-Figure\ref{fig:w1_latency} shows the p99 public latency, which is the time it takes for the producer to get an acknowledgement from the broker.
+\paragraph{System Stability and Backlog} The cost of RabbitMQ's smart broker architecture becomes evident when analyzing latency and backlogs in Figure~\ref{fig:w1_stability_group}.
+Figure~\ref{fig:w1_latency} shows the p99 public latency, which is the time it takes for the producer to get an acknowledgement from the broker.
 Kafka consistently acknowledges writes in single-digit milliseconds. RabbitMQ, conversely, exihibits high volatility with p99 latencies oscillating between 500ms and 1,500ms.
-This latency disparity is directly explained by\ref{fig:w1_backlog}. RabbitMQ accumulates a significant consumer backlog, peaking over $10^{5}$ messages.
+This latency disparity is directly explained by~\ref{fig:w1_backlog}. RabbitMQ accumulates a significant consumer backlog, peaking over $10^{5}$ messages.
 Because RabbitMQ stores messages in a queue structure that requires memory management and index updates for every message, the high ingestion rate cause the broker to slow down producers to allow consumers to catch up.
 Kafka, utilizing a sequential append-only log, handled the backlog without impacting producer write latency, effectively decoupling the producer from the consumer.
 
@@ -288,11 +288,11 @@ In this experiment, Kafka provides approximately 4.2x the throughput of RabbitMQ
 Workload 2 simulated the real time component of the app, pushing updates to clients. The primary metric here is end-to-end (E2E) latency.
 \paragraph{Low vs. High Load Latency} The results for this workload yield unexpected findings regarding \textbf{Hypothesis 2.A}.
 We hypothesized that RabbitMQ would offer lower latency at low loads due to its push based model.
-However, the data refutes this. As seen in Figure\ref{fig:w2_100}, at a low load of 100 msg/s, Kafka maintains an E2E p99 latency of around 2ms.
+However, the data refutes this. As seen in Figure~\ref{fig:w2_100}, at a low load of 100 msg/s, Kafka maintains an E2E p99 latency of around 2ms.
 RabbitMQ exhibits a consistent latency floor of 1000ms. The high baseline for RabbitMQ suggests a configuration interaction with the test harness, but it highlights that push does not automatically guarantee lower latency than pull if the persistence guarantees are strict.
-\paragraph{Scalabiliy Under Load} Figure\ref{fig:w2_stability_grid} demonstrates the behavior as load increases to 10,000 msg/s (Figure\ref{fig:w2_10000}). Kafka remains stable with latencies under 20ms.
+\paragraph{Scalabiliy Under Load} Figure~\ref{fig:w2_stability_grid} demonstrates the behavior as load increases to 10,000 msg/s (Figure\ref{fig:w2_10000}). Kafka remains stable with latencies under 20ms.
 RabbitMQ's latency deteriorates further, spiking above 10,000ms.
-The relationship is best summarized further by the logarithmic scale curve in Figure\ref{fig:w2_curve}.
+The relationship is best summarized further by the logarithmic scale curve in Figure~\ref{fig:w2_curve}.
 Kafka's latency growth is linear and shallow, wheras RabbitMQ's latency growth is exponential relative to throughput.
 \textbf{Conclusion on Habitat 2:} \textbf{Hypothesis 2.A is refuted} and \textbf{Hypothesis 2.B is confirmed}.
 Even at low loads, Kafka's efficient zero-copy network transfer and sequential I/O provided lower latencies than RabbitMQ in this benchmark.
