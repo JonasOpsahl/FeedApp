@@ -27,9 +27,8 @@ Kafka decouples writes from notifications, Redis improves read performance, and 
 \subsection{Project Outcome}
 We delivered a working end-to-end prototype: users create polls, vote with instant updates, 
 and add threaded comments while all clients stay in sync through Kafka events, Redis caching, 
-and WebSocket notifications. The codebase includes authentication, core REST endpoints, and containerized 
-one-command startup. It provides a clear baseline for the technology evaluation and sets up future hardening 
-(durable database, stronger auth, observability, retries) without repeating other sections.
+and WebSocket notifications. The codebase includes authentication, core REST endpoints, and containerized startup. 
+It provides a clear baseline for the technology evaluation and sets up for possible future implementations.
 
 \subsection{Report Organization}
 This report is organized as follows. Section~\ref{sec:design} 
