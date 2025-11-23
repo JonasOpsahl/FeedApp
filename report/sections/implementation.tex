@@ -15,7 +15,7 @@ to the backend through environment variables. The most important part of the Com
 backend:
   ports: ["8080:8080"]
   environment:
-    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
     - SPRING_REDIS_HOST=redis
 
 frontend:
@@ -104,6 +104,21 @@ Consuming events:
 public void onVoteChange(Map<String, Object> event) {
   // invalidate Redis cache and notify WebSocket layer
 }
+\end{lstlisting}
+
+
+We use PollTopicManager to create Kafka topics dynamically. Whenever a poll is created, 
+we also create a topic for that poll's events. 
+This makes it easy to group events and scale the system. Here is our implementation below:
+
+\begin{lstlisting}[language=Java]
+// PollTopicManager (per-poll topics)
+ public void createPollTopic(Integer pollId) {
+        String topicName = getTopicNameForPoll(pollId);
+        NewTopic topic = new NewTopic(topicName, 1, (short) 3);
+        kafkaAdmin.createOrModifyTopics(topic);
+        logger.info("Topic created successfully.");
+    }
 \end{lstlisting}
 
 This approach separates writes from cache invalidation and real-time UI updates, improving system responsiveness 
