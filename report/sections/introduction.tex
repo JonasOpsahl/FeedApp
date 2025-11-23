@@ -12,17 +12,20 @@ listens for WebSocket updates, and stays synchronized with the server. The proje
 explore event-driven patterns and how they scale as more users interact with the system.
 
 \subsection{Technology Stack Summary}
-Backend: Java with Spring Boot and Spring Security for REST APIs, validation, and authentication. 
-During development we use an in-memory H2 database, with Redis as a cache for frequently accessed poll data. Kafka handles domain events such as vote changes.
+Backend: Java with Spring Boot and Spring Security is used to build REST APIs, check 
+inputs, and handle login. During development we use an in-memory H2 database, and Redis 
+stores fast-access poll data. Kafka is used to send events when something changes, 
+like a vote.
 
-Frontend: React with TypeScript provides a simple, component-based UI that updates in real 
-time through a single WebSocket connection.
+Frontend: React with TypeScript gives a simple, component-based user interface that 
+updates in real time through one WebSocket connection.
 
-Docker and CI: Docker Compose ensures consistent local deployment of all services, 
-and GitHub Actions builds and tests the full stack on every push to maintain reliability.
+Docker and CI: Docker Compose makes sure all services run the same way locally, and 
+GitHub Actions builds and tests the whole system on each push to keep everything stable.
 
-We chose this stack because it is familiar, easy to set up, and scales horizontally. 
-Kafka decouples writes from notifications, Redis improves read performance, and WebSockets keep the UI responsive
+We chose this stack because it is familiar, easy to set up, and can scale horizontally. 
+Kafka separates updates from notifications, Redis makes reads faster, and WebSockets 
+keep the UI fast and reactive.
 
 \subsection{Project Outcome}
 We delivered a working end-to-end prototype: users create polls, vote with instant updates, 
