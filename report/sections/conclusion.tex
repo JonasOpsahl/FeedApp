@@ -1,25 +1,18 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This project resulted in a working real-time polling app and a comparison of Kafka and RabbitMQ as 
-messaging solutions for event-driven systems. The technologies work differently and have different strengths. 
-RabbitMQ uses a simpler model based on queues and exchanges, which makes it easier to understand and suitable for 
-smaller or more straightforward setups. Kafka requires learning more concepts, such as partitions, replication, 
-and consumer groups, but is designed to handle larger amounts of data and more demanding workloads.
+This project produced a working real-time polling app and a benchmark comparison 
+of Kafka and RabbitMQ. RabbitMQ’s queue/exchange model is easier to understand for 
+small or straightforward setups; Kafka’s log with partitions, replication and 
+consumer groups targets larger, demanding workloads.
 
-Our experiments provided a clear contrast in how the two technologies behave 
-under the kinds of workloads a live polling service must handle. Kafka 
-consistently delivered higher throughput and more stable latency as load increased, 
-while RabbitMQ showed larger spikes and less predictable performance when both write 
-pressure and fan-out activity rose. This makes Kafka a better fit for high-volume, 
-real-time feeds like the one FeedApp demonstrates.
+In our workloads Kafka sustained higher throughput and more stable latency as 
+load and fan‑out increased, while RabbitMQ showed spikes and variance. For 
+high‑volume real‑time feeds like FeedApp, Kafka is the better fit.
 
-The project also strengthened our understanding of event-driven design, 
-caching, and containerized deployment. The evaluation showed that technology 
-choice depends on the scale and responsiveness requirements of the system: RabbitMQ 
-remains an accessible and capable broker, but for high-throughput, low-latency event 
-streams, Kafka offers clear advantages. Overall, the prototype and benchmark results provide 
-direction for how FeedApp could be taken further toward a real production setup.
+We gained practical experience with event-driven design, caching and containerization. 
+RabbitMQ remains accessible, but for low‑latency, high‑throughput streams Kafka 
+offered clear advantages. The next step is to prepare the system for real production use and test it at scale
 
 \subsection{Links to GitHub/Container image}
 
