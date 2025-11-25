@@ -2,7 +2,7 @@
 \label{sec:implementation}
 
 This section gives a short view of how the prototype works: how to run it, how the backend processes changes, 
-how events reach clients, and what can be extended. Listings are trimmed to only illustrate the key mechanisms.
+how events reach clients, and what can be extended. 
 
 \subsection{Setup and Deployment}
 FeedApp runs under Docker Compose (Spring Boot backend, React/Vite frontend, Redis cache, Kafka cluster). 
@@ -22,7 +22,7 @@ Start everything with:\vspace{-0.3em}
 \begin{lstlisting}
 docker compose up -d
 \end{lstlisting}
-The UI is served at \texttt{http://localhost:5173}. A single WebSocket complements REST for real-time updates.
+The UI is hosted at \texttt{http://localhost:5173}. A single WebSocket complements REST for real-time updates.
 
 \subsection{Backend}
 The Spring Boot backend exposes REST endpoints (polls, votes, comments) via controllers; services hold logic; 
@@ -36,22 +36,22 @@ authorizeHttpRequests(a -> a
   .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
   .anyRequest().authenticated());
 \end{lstlisting}
-Each successful write broadcasts a lightweight WebSocket hint so clients refresh selectively:
+After each change, the server sends a WebSocket message  trigger targeted data reloads:
 \begin{lstlisting}[language=Java]
 RawWebSocketServer.broadcast("pollsUpdated");
 \end{lstlisting}
 
 \subsubsection*{Kafka Integration}
 Every poll gets its own topic (\texttt{poll.voteChange.<id>}) to keep ordering local and isolate events. 
-Producer and consumer are thin wrappers:
+Producer and consumer are simple helpers:
 \begin{lstlisting}[language=Java]
-// Producer
+// Producer for sendng events
 kafkaTemplate.send(topicName, data);
-// Consumer
+// Consumer for reacting to events
 @KafkaListener(topicPattern="poll.voteChange.*", groupId="poll-app")
 public void onVoteChange(Map<String,Object> e) { /* invalidate cache + notify */ }
 \end{lstlisting}
-Topics are created with one partition (replication factor three) for ordered, fault‑tolerant updates.
+Each topic uses a single partition and is copied to three brokers, so messages stay in order and survive a node failure.
 
 \subsection{Frontend}
 The React + TypeScript frontend fetches state over REST and listens on one WebSocket connection:
@@ -69,5 +69,5 @@ onWs(msg => {
 
 \subsection{Extensibility}
 The modular design supports new poll types, friend/sharing features, stronger authentication, 
-and mobile clients reusing REST/WebSocket APIs. We were thinking about making a larger external benchmark results,but due to
-limited timeconstraints we were not able to conduct them.
+and mobile clients reusing REST/WebSocket APIs. We were thinking about making a larger external benchmark results, but due to
+limited time-constraints we were not able to create them.

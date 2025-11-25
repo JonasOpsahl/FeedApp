@@ -3,8 +3,8 @@
 
 This project produced a working real-time polling app and a benchmark comparison 
 of Kafka and RabbitMQ. RabbitMQ’s queue/exchange model is easier to understand for 
-small or straightforward setups; Kafka’s log with partitions, replication and 
-consumer groups targets larger, demanding workloads.
+small or straightforward setups. Kafka is better suited for big, demanding workloads 
+because it spreads work across partitions and consumers.
 
 In our workloads Kafka sustained higher throughput and more stable latency as 
 load and fan‑out increased, while RabbitMQ showed spikes and variance. For 
@@ -12,7 +12,7 @@ high‑volume real‑time feeds like FeedApp, Kafka is the better fit.
 
 We gained practical experience with event-driven design, caching and containerization. 
 RabbitMQ remains accessible, but for low‑latency, high‑throughput streams Kafka 
-offered clear advantages. The next step is to prepare the system for real production use and test it at scale
+offered clear advantages. The next step is to prepare the system for real production, and possibly add new extensions.
 
 \subsection{Links to GitHub/Container image}
 
