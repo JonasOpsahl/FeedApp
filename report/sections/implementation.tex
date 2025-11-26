@@ -1,165 +1,73 @@
 \section{Prototype Implementation}
 \label{sec:implementation}
 
-This section outlines how the FeedApp prototype is implemented and demonstrates the core 
-mechanisms behind running and extending the system. Only key code snippets are included here to illustrate the 
-most important architectural details in our FeedApp.
+This section gives a short view of how the prototype works: how to run it, how the backend processes changes, 
+how events reach clients, and what can be extended. 
 
 \subsection{Setup and Deployment}
-
-FeedApp runs as a multi-container application using Docker Compose, consisting of a Spring Boot backend, 
-a React/Vite frontend, Redis for caching, and Kafka as the event bus. Infrastructure configuration is passed 
-to the backend through environment variables. The most important part of the Compose file is shown below:
-
+FeedApp runs under Docker Compose (Spring Boot backend, React/Vite frontend, Redis cache, Kafka cluster). 
+Core backend settings are passed as environment variables:
 \begin{lstlisting}[language=yaml]
-frontend:
-  image: erlendandre/feedapp-frontend:latest
-  ports: ["5173:5173"]
-  depends_on: [backend] 
-
 backend:
   image: erlendandre/feedapp-backend:latest
   ports: ["8080:8080"]
   environment:
     - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
     - SPRING_REDIS_HOST=redis
+frontend:
+  image: erlendandre/feedapp-frontend:latest
+  ports: ["5173:5173"]
 \end{lstlisting}
-
-The entire system can be started with:
+Start everything with:\vspace{-0.3em}
 \begin{lstlisting}
 docker compose up -d
 \end{lstlisting}
+The UI is hosted at \texttt{http://localhost:5173}. A single WebSocket complements REST for real-time updates.
 
-The frontend is then reachable at \texttt{http://localhost:5173}.  
-A persistent WebSocket connection is used alongside REST APIs to support real-time updates across clients.
-
-\subsection{Backend Implementation}
-
-The backend follows a layered Spring Boot structure. Controllers expose REST endpoints, Services implement poll, 
-vote, and comment logic, and Repositories handle persistence via JPA or an in-memory store. Redis is used as a 
-simple cache for frequently read poll results.
-
-\subsubsection{Authentication and Security}
-
-Authentication is implemented with stateless JWT tokens. Viewing polls and voting are public operations, 
-while creating polls and comments requires authentication. Below is a brief outline of the security rules from our configuration:
-
+\subsection{Backend}
+The Spring Boot backend exposes REST endpoints (polls, votes, comments) via controllers; services hold logic; 
+repositories use JPA or an in-memory profile. Redis caches popular poll results. Stateless JWT security allows 
+public viewing and voting while protecting creation actions:
 \begin{lstlisting}[language=Java]
-// SecurityConfig (selected rules)
-http.csrf(AbstractHttpConfigurer::disable)
-  .sessionManagement(s -> s.sessionCreationPolicy(STATELESS))
-  .authorizeHttpRequests(a -> a
-    .requestMatchers("/api/auth/**", "/rawws").permitAll()
-    .requestMatchers(HttpMethod.GET, "/api/polls/**").permitAll()
-    .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
-    .anyRequest().authenticated());
+// Security rules (excerpt)
+authorizeHttpRequests(a -> a
+  .requestMatchers("/api/auth/**", "/rawws").permitAll()
+  .requestMatchers(HttpMethod.GET, "/api/polls/**").permitAll()
+  .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
+  .anyRequest().authenticated());
 \end{lstlisting}
-
-The \texttt{JwtAuthFilter} validates tokens on each request and injects the authenticated user into 
-controller methods using \texttt{@AuthenticationPrincipal}.  
-
-\subsubsection{Core APIs and Real-Time Updates}
-
-Endpoints under \texttt{/api/polls} handle CRUD operations, comments, and voting. A shortened version of 
-the voting endpoint is shown below:
-
-\begin{lstlisting}[language=Java]
-// PollController (vote endpoint)
-@PostMapping("/{id}/vote")
-public boolean castVote(@PathVariable Integer id,
-                        @RequestParam Integer presentationOrder,
-                        @AuthenticationPrincipal User user) {
-  return pollService.castVote(
-     id,
-     user == null ? Optional.empty() : Optional.of(user.getUserId()),
-     presentationOrder);
-}
-\end{lstlisting}
-
-On each update, the backend broadcasts a minimal WebSocket message to prompt clients to refresh their view:
-
+After each change, the server sends a WebSocket message  trigger targeted data reloads:
 \begin{lstlisting}[language=Java]
 RawWebSocketServer.broadcast("pollsUpdated");
 \end{lstlisting}
 
-This keeps the UI synchronized without polling.
-
-\subsubsection{Kafka Integration}
-
-Kafka serves as the event bus for vote and poll updates. Each poll receives a dedicated topic to maintain 
-ordering and isolate events.
-
-Publishing events:
-
+\subsubsection*{Kafka Integration}
+Every poll gets its own topic (\texttt{poll.voteChange.<id>}) to keep ordering local and isolate events. 
+Producer and consumer are simple helpers:
 \begin{lstlisting}[language=Java]
-// ProducerService (send event)
-public void sendEvent(String topic, Map<String, Object> data) {
-  kafkaTemplate.send(topic, data);
-}
-\end{lstlisting}
-
-Consuming events:
-
-\begin{lstlisting}[language=Java]
-// ConsumerService (pattern subscription)
+// Producer for sendng events
+kafkaTemplate.send(topicName, data);
+// Consumer for reacting to events
 @KafkaListener(topicPattern="poll.voteChange.*", groupId="poll-app")
-public void onVoteChange(Map<String, Object> event) {
-  // invalidate Redis cache and notify WebSocket layer
-}
+public void onVoteChange(Map<String,Object> e) { /* invalidate cache + notify */ }
 \end{lstlisting}
+Each topic uses a single partition and is copied to three brokers, so messages stay in order and survive a node failure.
 
-
-We use PollTopicManager to create Kafka topics dynamically. Whenever a poll is created, 
-we also create a topic for that poll's events. 
-This makes it easy to group events and scale the system. Here is our implementation below:
-
-\begin{lstlisting}[language=Java]
-// PollTopicManager (per-poll topics)
- public void createPollTopic(Integer pollId) {
-        String topicName = getTopicNameForPoll(pollId);
-        NewTopic topic = new NewTopic(topicName, 1, (short) 3);
-        kafkaAdmin.createOrModifyTopics(topic);
-        logger.info("Topic created successfully.");
-    }
-\end{lstlisting}
-
-This approach separates writes from cache invalidation and real-time UI updates, improving system responsiveness 
-under load.
-
-\subsection{Frontend Implementation}
-
-The frontend is built in React and TypeScript. REST APIs fetch poll data, while a single WebSocket connection 
-delivers push updates. The WebSocket setup is shown below:
-
+\subsection{Frontend}
+The React + TypeScript frontend fetches state over REST and listens on one WebSocket connection:
 \begin{lstlisting}[language=TypeScript]
-// ws.ts
-export function connectWs() {
-  const url = `${location.protocol==="https:"?"wss":"ws"}://${location.hostname}:8080/rawws`;
-  const ws = new WebSocket(url);
-  ws.onmessage = ev => {
-    try { emit(JSON.parse(ev.data)); }
-    catch { emit(ev.data); }
-  };
-}
+const ws = new WebSocket(`${location.protocol==="https:"?"wss":"ws"}://${location.hostname}:8080/rawws`);
+ws.onmessage = ev => emit(safeParse(ev.data));
 \end{lstlisting}
-
-Components subscribe to events and handle updates selectively:
-
+Selective refresh logic keeps traffic low:
 \begin{lstlisting}[language=TypeScript]
-// App.tsx
-useEffect(() => onWs(msg => {
+onWs(msg => {
   if (msg === "pollsUpdated") refreshPolls();
   if (msg === "commentsUpdated") bumpCommentsVersion(activePollId);
-}), []);
+});
 \end{lstlisting}
 
-This pattern keeps the UI responsive with minimal network traffic.
-
-\subsection{Extensibility and Future Work}
-
-The modular design makes it straightforward to add new poll types, adding friends, or stronger authentication, 
-and a mobile client could reuse the existing REST and WebSocket APIs. Planned improvements include 
-hardened production security and a durable database. Because of time constraints and limited hardware, 
-we could not run large tests ourselves. 
-Instead, we use published large-scale results to confirm the observations we see and to give 
-a broader context for performance we cannot test yet but want to explore in the future.
+\subsection{Extensibility}
+The modular design supports new poll types, friend/sharing features, stronger authentication, 
+and mobile clients reusing REST/WebSocket APIs. We were thinking about making a larger external benchmark results, but due to
+limited time-constraints we were not able to create them.
