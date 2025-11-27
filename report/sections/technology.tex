@@ -1,44 +1,26 @@
 \section{Technology Assessment}
 \label{sec:technology}
 
+FeedApp utilizes Apache Kafka as a distributed event streaming platform to decouple write-intensive user actions (voting) from real-time notifications. Unlike traditional message queues that delete messages upon consumption, Kafka acts as a fault-tolerant, immutable log. 
+To evaluate Kafka against its alternative, RabbitMQ, we adopt the software technology evaluation framework defined by Brown and Wallnau\cite{brown:96}. This framework guides our assessment through descriptive modeling of the technology's lineage (genealogy) and usage context (habitat), followed by hypothesis-driven experimentation.
+To contextually ground the assessment, Table \ref{tab:kafka_concepts} defines the core streaming concepts implemented in the FeedApp architecture.
 
-At its core, Apache Kafka is a distributed event streaming platform acting as a fault-tolerant log.
-The \textbf{FeedApp} uses Kafka to decouple tasks: user votes publish events that trigger asynchronous reactions from services (like the WebSocket broadcaster) rather than blocking immediate updates.
+\begin{table}[H]
+    \centering
+    \renewcommand{\arraystretch}{1.2}
+    \begin{tabular}{|l|p{10cm}|}
+    \hline
+    \textbf{Concept} & \textbf{Implementation in FeedApp} \\ \hline
+    \textbf{Event} & An immutable record of a state change (e.g., a `Vote Cast') rather than a database update. \\ \hline
+    \textbf{Topic} & A category for event storage. We utilize a \textit{dynamic topic} strategy where every unique poll gets a dedicated topic (e.g., \texttt{poll.voteChange.10}) to isolate event streams. \\ \hline
+    \textbf{Consumer Group} & A configuration (\texttt{poll-app}) that allows multiple backend instances to share the load of processing events. \\ \hline
+    \textbf{Cluster} & A three-node broker setup using the KRaft consensus protocol (removing ZooKeeper) to ensure fault tolerance and high availability. \\ \hline
+    \end{tabular}
+    \caption{Key Messaging Concepts and Configuration in FeedApp}
+    \label{tab:kafka_concepts}
+\end{table}
 
-\paragraph{Event: }
-An event is the most basic unit of data representing a state change. In FeedApp, a `Vote Cast' is an event.
-It is not just a database update; it is an immutable record containing the \texttt{pollId} and the option selected, which triggers reactions across the system.
-
-\paragraph{Topic: }
-A topic is a category where events are stored.
-FeedApp utilizes a `dynamic topic' strategy where every unique poll gets its own topic (e.g., \texttt{poll.voteChange.10}).
-This ensures that events for a specific poll are isolated, allowing consumers to subscribe only to active polls rather than filtering through a monolithic stream of all system data.
-
-
-\paragraph{Producer: }
-A producer is the client application that writes events to the log.
-In our architecture, the Spring Boot backend acts as the producer.
-When a user submits a vote via the REST API, the producer publishes this event to the cluster, decoupling the immediate user request from the downstream processing.
-
-
-\paragraph{Consumer and Consumer Group: }
-Consumers read events from topics.
-In FeedApp, the WebSocket service acts as a consumer.
-It listens to vote events to broadcast real-time updates to the frontend.
-By placing these consumers in a \textbf{Consumer Group} (configured as poll-app), Kafka ensures that if we scale the backend to multiple instances, the processing of poll topics is automatically load-balanced among them.
-
-\paragraph{Partition and Replication: }
-Partitions allow topics to be split across multiple brokers for scalability, while replication ensures fault tolerance.
-For \textbf{FeedApp}, we configure our poll topics with a single partition to guarantee strict ordering of votes (ensuring the vote count is always accurate sequentially) but replicate that partition across three nodes.
-This ensures that even if one broker fails, the poll data remains available.
-
-
-\paragraph{Broker and Cluster: }
-A broker is a single Kafka server, and a cluster is a group of brokers working together.
-Our setup uses a three-node cluster \texttt{(kafka-1, kafka-2, kafka-3)} managed by the KRaft consensus protocol\cite{KRaft_mode}.
-This mimics a production environment where the system can survive hardware failures without data loss.
-
-This part of the report aims to follow this software technology evaluation framework.~\ref{fig:framework}
+This part of the report aims to follow this software technology evaluation framework~\ref{fig:framework}.
 
 
 \begin{figure}[H]
@@ -61,7 +43,7 @@ This model describes the ancestry and core design philosophy of the two competin
 Candidate technology 1 is Apache Kafka (KRaft mode). Kafka is, as stated earlier, a distributed event streaming platform. Its core architecture is a persistent, immutable log.
 It uses a dumb broker/smart consumer model, where the consumers pull data by tracking their position using an offset within the log.
 The KRaft mode we are looking at is a significant evolution. Its precursor architecture required a separate, external Apache ZooKeeper cluster.
-This external dependency was known to cause:\cite{kraft_vs_zookeeper}
+This external dependency was known to cause\cite{kraft_vs_zookeeper}:
 
 1. High operational complexity: Requiring the management and security of two separate distributed systems.
 
@@ -74,10 +56,10 @@ This was designed to provide simpler operations, massive scalability (to million
 
 Candidate technology 2 is RabbitMQ.\@ RabbitMQ is a traditional message broker with a long heritage rooted in reliable delivey protocols like AMQP.\@
 It functions as a smart broker/dumb consumer platform. The smart broker manages complex, flexible routing via exchanges and actively pushes messages to consumers.
-Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged.\cite{rabbitmq}
+Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged\cite{rabbitmq}.
 
 \subsubsection{Problem Domain Habitat}
-As defined by the evaluation framework, the Problem Domain Habitat describes the specific usage contexts, problem characteristics, and key requirements where the candidate technologies will be deployed.\cite{brown:96}
+As defined by the evaluation framework, the Problem Domain Habitat describes the specific usage contexts, problem characteristics, and key requirements where the candidate technologies will be deployed\cite{brown:96}.
 Our habitat is the FeedApp backend, a real-time, interactive polling application built on Spring Boot and Java.
 The primary objectives for this habitat are to find a messaging solution that is highly scalable, supports high throughput, and simultaneously provides good (low) latency.
 These objetives can be split into two separate problem domain habitats.
@@ -125,53 +107,21 @@ We will configure OMB with two distinct workloads, each designed as a model prob
 Workload 1 for Habitat 1: Ingestion test
 
 The purpose of this workload is to test hypotheses 1.A and 1.B.
-This will be the OMB workload configuration for this test.
-\begin{lstlisting}[language=yaml, basicstyle=\ttfamily\small]
-name: "workload1"
-topics: 1
-partitionsPerTopic: 3
-messageSize: 100
-useRandomizedPayloads: true
-randomBytesRatio: 0.5
-randomizedPayloadPoolSize: 1000
-subscriptionsPerTopic: 1
-consumerPerSubscription: 1
-producersPerTopic: 100
-producerRate: 500000
-consumerBacklogSizeGB: 0
-testDurationMinutes: 3
-\end{lstlisting}
-We will have many producers, a single topic/exchange, and a low number of consumers.
-This simulates thousands of concurrent users casting votes and creating polls in the FeedApp.
-There are three metrics we wish to capture in this test.
+To simulate high-volume ingestion (Habitat 1), we configured the benchmark with 100 producers generating small 100-byte messages at a target rate of 500,000 messages per second.
+The test utilized a single topic with three partitions to isolate raw ingestion throughput and producer stability.
+There are a few things we wish to look at with this workload:
 
 1. Maximum throughput: The highest sustainable message rate each platform can ingest
 
 2. Producer latency (p99): The 99th percentile latency for a producer to successfully publish a message.
 
-3. Scalability curve: Run the test with 1,5 and 10 producer instances to observe how throughput scales.
+3. Scalability curve: How good is the throughput with a lot of producers.
 
 Workload 2 for Habitat 2: Fan-out test
 
 The purpose of this workload is to test hypotheses 2.A and 2.B.
-This will be the OMB workload configuration for the test.
-\begin{lstlisting}[language=yaml, basicstyle=\ttfamily\small]
-name: "workload2"
-topics: 1
-partitionsPerTopic: 3
-messageSize: 1024 
-useRandomizedPayloads: true
-randomBytesRatio: 0.5
-randomizedPayloadPoolSize: 1000
-subscriptionsPerTopic: 70
-consumerPerSubscription: 1
-producersPerTopic: 1
-producerRate: 10000 # This will vary, 100,1000,10000
-consumerBacklogSizeGB: 0
-testDurationMinutes: 3
-\end{lstlisting}
-We will have a single producer and many competing consumers on a shared subscription.
-This simulates real time fanout of poll updates to all connected clients.
+For the fan-out scenario (Habitat 2), the workload used a single producer emitting larger 1KB messages to a topic with 70 competing consumers, simulating a broadcast to many connected clients.
+We executed this test at varying throughput rates (100, 1,000, and 10,000 msg/s) to identify the `crossover point' where latency degradation begins.
 There are two metrics we wish to capture in this test:
 
 1. End-to-end latency (p99): The time from message publish to message receipt by a consumer.
@@ -201,7 +151,7 @@ The experimental phase was aimed to gather empirical data to validate the suitab
         \label{fig:w1_throughput_bar}
     \end{subfigure}
     
-    \caption{\textbf{Workload 1 Ingestion Performance.} Comparing the stability and raw average throughput of Kafka vs. RabbitMQ.}
+    \caption{{Workload 1 Ingestion Performance.}}
     \label{fig:w1_throughput_group}
 \end{figure}
 Workload 1 simulated the \textbf{FeedApp} backend receiving a storm of user votes and poll creation events.
@@ -232,7 +182,7 @@ Figure~\ref{fig:w1_throughput_time} also clearly illustrates the increased throu
         \label{fig:w1_backlog}
     \end{subfigure}
     
-    \caption{\textbf{Workload 1 System Stability.} Correlating producer latency with consumer backlog accumulation.}
+    \caption{{Workload 1 System Stability.}}
     \label{fig:w1_stability_group}
 \end{figure}
 
@@ -273,14 +223,14 @@ In this experiment, Kafka provides approximately 4.2x the throughput of RabbitMQ
         \label{fig:w2_10000}
     \end{subfigure}
     
-    \caption{\textbf{Workload 2 Fanout Stability.} Evolution of end-to-end latency as throughput increases.}
+    \caption{{Workload 2 Fanout Stability.}}
     \label{fig:w2_stability_grid}
 \end{figure}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.85\textwidth]{figs/workload2_latency_curve.png}
-    \caption{\textbf{Latency vs. Throughput (p99).} Comparison of fanout latency scaling. Note the logarithmic scales on both axes.}
+    \includegraphics[width=0.6\textwidth]{figs/workload2_latency_curve.png}
+    \caption{{Latency vs. Throughput (p99).}}
     \label{fig:w2_curve}
 \end{figure}
 
@@ -290,10 +240,10 @@ Workload 2 simulated the real time component of the app, pushing updates to clie
 We hypothesized that RabbitMQ would offer lower latency at low loads due to its push based model.
 However, the data refutes this. As seen in Figure~\ref{fig:w2_100}, at a low load of 100 msg/s, Kafka maintains an E2E p99 latency of around 2ms.
 RabbitMQ exhibits a consistent latency floor of 1000ms. The high baseline for RabbitMQ suggests a configuration interaction with the test harness, but it highlights that push does not automatically guarantee lower latency than pull if the persistence guarantees are strict.
-\paragraph{Scalabiliy Under Load} Figure~\ref{fig:w2_stability_grid} demonstrates the behavior as load increases to 10,000 msg/s (Figure\ref{fig:w2_10000}). Kafka remains stable with latencies under 20ms.
+\paragraph{Scalabiliy Under Load} Figure~\ref{fig:w2_stability_grid} demonstrates the behavior as load increases to 10,000 msg/s (Figure~\ref{fig:w2_10000}). Kafka remains stable with latencies under 20ms.
 RabbitMQ's latency deteriorates further, spiking above 10,000ms.
 The relationship is best summarized further by the logarithmic scale curve in Figure~\ref{fig:w2_curve}.
 Kafka's latency growth is linear and shallow, wheras RabbitMQ's latency growth is exponential relative to throughput.
 \textbf{Conclusion on Habitat 2:} \textbf{Hypothesis 2.A is refuted} and \textbf{Hypothesis 2.B is confirmed}.
-Even at low loads, Kafka's efficient zero-copy network transfer and sequential I/O provided lower latencies than RabbitMQ in this benchmark.
+Even at low loads, Kafka's efficient zero-copy network transfer and sequential I/O provided lower latencies than RabbitMQ in this benchmark\cite{kafka_fast}.
 As load increased, Kafka's performance gap widened, proving it to be the more scalable solution for the \textbf{FeedApp's} fan-out requirements.
