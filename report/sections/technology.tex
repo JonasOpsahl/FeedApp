@@ -2,7 +2,7 @@
 \label{sec:technology}
 
 FeedApp utilizes Apache Kafka as a distributed event streaming platform to decouple write-intensive user actions (voting) from real-time notifications. Unlike traditional message queues that delete messages upon consumption, Kafka acts as a fault-tolerant, immutable log. 
-To evaluate Kafka against its alternative, RabbitMQ, we adopt the software technology evaluation framework defined by Brown and Wallnau.\cite{brown:96} This framework guides our assessment through descriptive modeling of the technology's lineage (genealogy) and usage context (habitat), followed by hypothesis-driven experimentation.
+To evaluate Kafka against its alternative, RabbitMQ, we adopt the software technology evaluation framework defined by Brown and Wallnau\cite{brown:96}. This framework guides our assessment through descriptive modeling of the technology's lineage (genealogy) and usage context (habitat), followed by hypothesis-driven experimentation.
 To contextually ground the assessment, Table \ref{tab:kafka_concepts} defines the core streaming concepts implemented in the FeedApp architecture.
 
 \begin{table}[H]
@@ -20,7 +20,7 @@ To contextually ground the assessment, Table \ref{tab:kafka_concepts} defines th
     \label{tab:kafka_concepts}
 \end{table}
 
-This part of the report aims to follow this software technology evaluation framework.~\ref{fig:framework}
+This part of the report aims to follow this software technology evaluation framework~\ref{fig:framework}.
 
 
 \begin{figure}[H]
@@ -43,7 +43,7 @@ This model describes the ancestry and core design philosophy of the two competin
 Candidate technology 1 is Apache Kafka (KRaft mode). Kafka is, as stated earlier, a distributed event streaming platform. Its core architecture is a persistent, immutable log.
 It uses a dumb broker/smart consumer model, where the consumers pull data by tracking their position using an offset within the log.
 The KRaft mode we are looking at is a significant evolution. Its precursor architecture required a separate, external Apache ZooKeeper cluster.
-This external dependency was known to cause:\cite{kraft_vs_zookeeper}
+This external dependency was known to cause\cite{kraft_vs_zookeeper}:
 
 1. High operational complexity: Requiring the management and security of two separate distributed systems.
 
@@ -56,10 +56,10 @@ This was designed to provide simpler operations, massive scalability (to million
 
 Candidate technology 2 is RabbitMQ.\@ RabbitMQ is a traditional message broker with a long heritage rooted in reliable delivey protocols like AMQP.\@
 It functions as a smart broker/dumb consumer platform. The smart broker manages complex, flexible routing via exchanges and actively pushes messages to consumers.
-Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged.\cite{rabbitmq}
+Its core data structure is a queue. Messages are stateful and are typically deleted from the queue once successfully consumed and acknowledged\cite{rabbitmq}.
 
 \subsubsection{Problem Domain Habitat}
-As defined by the evaluation framework, the Problem Domain Habitat describes the specific usage contexts, problem characteristics, and key requirements where the candidate technologies will be deployed.\cite{brown:96}
+As defined by the evaluation framework, the Problem Domain Habitat describes the specific usage contexts, problem characteristics, and key requirements where the candidate technologies will be deployed\cite{brown:96}.
 Our habitat is the FeedApp backend, a real-time, interactive polling application built on Spring Boot and Java.
 The primary objectives for this habitat are to find a messaging solution that is highly scalable, supports high throughput, and simultaneously provides good (low) latency.
 These objetives can be split into two separate problem domain habitats.
@@ -245,5 +245,5 @@ RabbitMQ's latency deteriorates further, spiking above 10,000ms.
 The relationship is best summarized further by the logarithmic scale curve in Figure~\ref{fig:w2_curve}.
 Kafka's latency growth is linear and shallow, wheras RabbitMQ's latency growth is exponential relative to throughput.
 \textbf{Conclusion on Habitat 2:} \textbf{Hypothesis 2.A is refuted} and \textbf{Hypothesis 2.B is confirmed}.
-Even at low loads, Kafka's efficient zero-copy network transfer and sequential I/O provided lower latencies than RabbitMQ in this benchmark.\cite{kafka_fast}
+Even at low loads, Kafka's efficient zero-copy network transfer and sequential I/O provided lower latencies than RabbitMQ in this benchmark\cite{kafka_fast}.
 As load increased, Kafka's performance gap widened, proving it to be the more scalable solution for the \textbf{FeedApp's} fan-out requirements.
