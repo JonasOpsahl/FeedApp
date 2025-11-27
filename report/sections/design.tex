@@ -4,18 +4,18 @@
 This section presents the design of the FeedApp system. It covers the main
 functional use cases, the domain model that structures the application's core
 entities and the overall software architecture. Together, these elements show
-how the system supports real-time behaviour, modular business logic and scalability. 
+how the system supports real-time behavior, modular business logic and scalability. 
 Each part is accompanied by a diagram to provide a high-level structural overview.
 
 \subsection{Use Cases}
 
 FeedApp allows users to vote on and discuss polls in real time. The system distinguishes between 
 two user roles. \textbf{Anonymous users} can browse public polls, vote on them, register a new account and log in. 
-\textbf{Registered users} has all anonymous permissions and can additionally create polls, comment on polls, 
+\textbf{Registered users} have all anonymous permissions and can additionally create polls, comment on polls, 
 vote on private polls if invited and manage polls they have created.
 
 
-The following use cases emerge for there roles (as illustrated in Figure~\ref{fig:usecase}):
+The following use cases emerge for these roles (as illustrated in Figure~\ref{fig:usecase}):
 
 \begin{itemize}
   \item \textbf{Register and log in:} An anonymous user may register by providing a username, 
@@ -30,7 +30,7 @@ The following use cases emerge for there roles (as illustrated in Figure~\ref{fi
   relevant Redis cache entry and broadcasting a WebSocket signal so that all clients refresh 
   their displayed results.
   \item \textbf{Comment:} Registered users may write comments on polls and reply to existing comments.
-  \item \textbf{Manage Polls:}Poll creators may add extra options or delete their own polls. 
+  \item \textbf{Manage Polls:} Poll creators may add extra options or delete their own polls. 
   Deletions cascade appropriately, removing options, votes and comments associated with the poll.
 \end{itemize}
 
@@ -50,14 +50,14 @@ classes in the Spring Boot backend and persisted using Hibernate.
 
 \paragraph*{User}
 The \texttt{User} entity represents a registered account with a unique identifier, username,
-email address and password hash. A user may create multiple polls, vote and comment.
+email address and password hash. A user may create multiple polls, and vote and comment on polls.
 In the case of anonymous voting, the \texttt{Vote} entity stores no user reference, 
-making the user-vote relationship optional. A \texttt{User} may create many polls.
+making the user-vote relationship optional.
 
 \paragraph*{Poll}
 The \texttt{Poll} entity represents a question created by a user. It contains metadata such as 
 visibility (public or private), validity period and a collection of vote options and comments. 
-A \texttt{Poll} can have two to many \texttt{VoteOptions} and one to many \texttt{Comments}.
+A \texttt{Poll} must have two or more \texttt{VoteOptions} and \textit{can} have many \texttt{Comments}.
 
 \paragraph*{Vote}
 The \texttt{Vote} entity represents an individual vote cast on a specific \texttt{VoteOption}. Votes
@@ -69,8 +69,7 @@ A poll must have at least two \texttt{VoteOptions} and each option is uniquely i
 
 \paragraph*{Comment}
 The \texttt{Comment} entity represents comments written by a user connected to a \texttt{Poll}. Comments 
-support nested replies through a recursive \texttt{parent} relationship. A \texttt{Comment} may have 
-nested child (comments via its \texttt{parent} field). Comments are deleted if their parent or poll is 
+support nested replies through a recursive \texttt{parent} relationship. Comments are deleted if their parent or poll is 
 removed.
 
 \begin{figure}[H]
@@ -97,7 +96,7 @@ accesses data directly. The UI listens for events such as \texttt{pollsUpdated} 
 \texttt{commentsUpdated} and refreshes data automatically.
 
 \paragraph*{Backend (Spring Boot)}    
-The backend implements the core application logic. The controllers maps HTTP endpoints to methods in 
+The backend implements the core application logic. The controllers map HTTP endpoints to methods in 
 the service layer. The service layer contains domain logic for polls, votes, comments and events. 
 This includes caching, authentication and Kafka integration. The persistence layer uses JPA/Hibernate 
 to store and retrieve entities from the database. The backend also hosts the WebSocket endpoint 
