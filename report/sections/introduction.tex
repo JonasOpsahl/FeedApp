@@ -7,7 +7,7 @@ results, and the app updates everyone in real time so new votes and comments app
 The goal is to make collecting and viewing feedback simple and fast.
 
 The system has two main parts: a backend and a frontend. The backend provides REST endpoints for 
-polls, votes, and comments, and emits events when data changes. The frontend displays the current state, 
+polls, votes, and comments, and publishes events when data changes. The frontend displays the current state, 
 listens for WebSocket updates, and stays synchronized with the server. The project also serves as a way to 
 explore event-driven patterns and how they scale as more users interact with the system.
 
@@ -36,9 +36,10 @@ It provides a clear baseline for the technology evaluation and sets up for possi
 \subsection{Report Organization}
 This report is organized as follows. Section~\ref{sec:design} 
 explains the design: main use cases, the domain model, and the overall 
-architecture. Section~\ref{sec:technology} introduces Kafka (and the supporting tech), 
+architecture. Section~\ref{sec:technology} introduces Kafka, 
 and outlines our experiment plan and assumptions. Section~\ref{sec:implementation} 
-describes how we built the prototype, how services talk to each other, and how to run 
-it locally. Finally, Section~\ref{sec:conclusion} sums up what we learned from building 
+gives a short view of how the prototype works: how to run it, how the backend processes changes, 
+how events reach clients, and what can be extended. Finally, 
+Section~\ref{sec:conclusion} sums up what we learned from building 
 the app and comparing Kafka and RabbitMQ for real-time updates.
 \medskip
