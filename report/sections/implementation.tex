@@ -10,8 +10,8 @@ Developers do not need Java or Kafka installed locally, everything is started wi
 docker compose up -d
 \end{lstlisting}
 Once running, the frontend is available at \texttt{http://localhost:5173}, and it talks to the backend and 
-WebSocket server automatically inside the Docker network. We also built and published Docker images for both the backend 
-and frontend, and the links to these images are included below.
+WebSocket server automatically inside the Docker network. We also built and published Docker images for both the backend
+and frontend; the links to these images are listed in Section~\ref{sec:links}.
 To automate this, we created a small GitHub Actions workflow that builds the project, starts the containers, 
 and runs health checks on every push or pull request to \texttt{"main"}.
 \subsection{Backend}
