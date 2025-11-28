@@ -1,87 +1,83 @@
 \section{Prototype Implementation}
 \label{sec:implementation}
-
-This section gives a short view of how the prototype works: how to run it, how the backend processes changes, 
-how events reach clients, and what can be extended. 
-
+This section gives a short overview of how the prototype is set up, how the backend processes changes, 
+how updates reach the clients, and what developers can build on further. The focus here is on the two 
+technologies that drive the real-time behaviour in the system: Kafka and WebSockets.
 \subsection{Setup and Deployment}
-FeedApp runs under Docker Compose.
-Core backend settings are passed as environment variables. Each service runs from a pre-built Docker image 
-(feedapp-backend and feedapp-frontend) published on Docker Hub, so the entire application can be started without compiling any code locally:
-\begin{lstlisting}[language=yaml]
-backend: //from docker-compose.yml
-  image: erlendandre/feedapp-backend:latest
-  ports: ["8080:8080"]
-  environment:
-    - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka-1:29092,kafka-2:29092,kafka-3:29092
-    - SPRING_REDIS_HOST=redis
-frontend:
-  image: erlendandre/feedapp-frontend:latest
-  ports: ["5173:5173"]
-\end{lstlisting}
-Start everything with:
+The full system runs in Docker Compose, including the backend, frontend, Kafka (3 brokers) and Redis.
+Developers do not need Java or Kafka installed locally, everything is started with:
 \begin{lstlisting}
 docker compose up -d
 \end{lstlisting}
-This command starts the Spring Boot backend, React frontend, Kafka and Redis cache on a shared Docker network, so they can talk to each other without extra configuration.
-The UI is hosted at \texttt{http://localhost:5173}. A single WebSocket complements REST for real-time updates.
-
+Once running, the frontend is available at \texttt{http://localhost:5173}, and it talks to the backend and 
+WebSocket server automatically inside the Docker network. We also built and published Docker images for both the backend 
+and frontend, and the links to these images are included below.
+To automate this, we created a small GitHub Actions workflow that builds the project, starts the containers, 
+and runs health checks on every push or pull request to \texttt{"main"}.
 \subsection{Backend}
-The Spring Boot backend exposes REST endpoints (polls, votes, comments) via controllers, services hold logic, and
-repositories use JPA with Hibernate as the ORM provider, or an in-memory H2 database. 
-Controllers handle HTTP endpoints, services contain business logic, and repositories manage database access.
-Poll results are cached in Redis (keyed by poll id) to avoid repeated DB queries. After each change 
-(creating polls, voting, or commenting), the server sends a WebSocket message to trigger targeted data reloads:
+The backend is a Spring Boot application. Controllers expose REST endpoints, services handle the logic, 
+and JPA repositories use Hibernate as the ORM layer against an H2 database during development. Poll results are cached in Redis to avoid 
+running the same SQL queries repeatedly.
+The interesting part is how a change moves through the system: when someone votes or comments, the backend saves it, 
+sends a small event to Kafka, the consumer reacts by clearing the cache, and finally a WebSocket message notifies all connected clients.
+This lets the UI update instantly without reloading the page or spamming the server with requests.
+We added a simple security setup using JWT tokens, so users can log in and the backend can protect the routes that require authentication.
+\subsubsection*{Kafka Integration}
+Each poll gets its own topic so vote ordering is kept local (\texttt{poll.voteChange.<id>}). When a change happens, 
+the backend publishes a small event:
+\begin{lstlisting}[language=Java]
+// ProducerService
+public void sendEvent(String topic, Map<String,Object> data) {
+kafkaTemplate.send(topic, data);
+}
+\end{lstlisting}
+When a new poll is created, we also create a new Kafka topic with a single partition, replicated on three brokers, 
+so messages remain ordered and survive a node failure.
+\begin{lstlisting}[language=Java]
+// PollTopicManager
+NewTopic topic = new NewTopic("poll.voteChange." + pollId, 1, (short) 3);
+kafkaAdmin.createOrModifyTopics(topic);
+\end{lstlisting}
+A single Kafka consumer listens to all poll topics and reacts to events:
+\begin{lstlisting}[language=Java]
+// ConsumerService
+@KafkaListener(topicPattern="poll.voteChange.*")
+public void consumeVoteChangeEvent(Map<String,Object> data) {
+pollService.invalidatePollCache((Integer) data.get("pollId"));
+RawWebSocketServer.broadcastJson(Map.of(
+"type","vote-delta",
+"pollId", data.get("pollId")
+));
+}
+\end{lstlisting}
+This keeps the backend easy to deal with. Kafka takes care of the ordering for us, and we only send the clients the small updates they need.
+\subsection{WebSockets}
+Instead of sending all the poll data through WebSockets, the server just sends small signals. 
+When something changes, the backend calls:
 \begin{lstlisting}[language=Java]
 RawWebSocketServer.broadcast("pollsUpdated");
 \end{lstlisting}
-
-Stateless JWT security allows 
-public viewing and voting while protecting creation actions:
+or when sending a JSON message:
 \begin{lstlisting}[language=Java]
-.authorizeHttpRequests(authz -> authz // From SecurityConfig
-    .requestMatchers("/api/auth/**").permitAll()
-    .requestMatchers(HttpMethod.GET, "/api/polls/**").permitAll()
-    .requestMatchers(HttpMethod.POST, "/api/polls/*/vote").permitAll()
-    .anyRequest().authenticated()
-);
+RawWebSocketServer.broadcastJson(Map.of("type","poll-created"));
 \end{lstlisting}
-Spring Security handles authentication by validating username–password credentials and issuing JWT tokens 
-for authorized requests. New users register through a REST endpoint, with passwords hashed using bcrypt 
-before persistence.
-
-\subsubsection*{Kafka Integration}
-Kafka is used as the event backbone: the backend publishes vote‑change events (one topic per poll) so ordering is preserved and updates can be processed independently.
-In \texttt{PollTopicManager} from our service environment, every poll gets its own topic (\texttt{poll.voteChange.<id>}) to keep ordering local and isolate different events. 
-Producer and consumer are simple helpers:
-\begin{lstlisting}[language=Java]
-// Producer for sending events, from ProducerService
-public void sendEvent(String topicName, Map<String, Object> data) { 
-        logger.info("Sending event to topic " + topicName);
-        kafkaTemplate.send(topicName, data);
-    }
-// Consumer for reacting to events, from ConsumerService
-@KafkaListener(topicPattern = "poll.voteChange.*", groupId = "poll-app") 
-public void consumeVoteChangeEvent(Map<String, Object> voteData) { /* invalidate cache + notify */ }
-\end{lstlisting}
-We invalidate the cached result for the affected poll in Redis and then notify connected clients via the pollsUpdated WebSocket event.
-Each topic uses a single partition and is replicated on three brokers, so messages remain ordered and survive a node failure.
-
-\subsection{Frontend}
-The React + TypeScript frontend fetches state over REST and listens on one WebSocket connection for realtime updates. It 
-automatically selects ws or wss (secure) based on the page’s protocol, then listens for messages and parses them into the app’s state.
+These WebSocket signals are triggered directly in the controller methods that handle actions such as creating polls, deleting polls, or adding comments.
+On the frontend, there is only one WebSocket connection for the whole app. When a message arrives, the client decides what to reload:
 \begin{lstlisting}[language=TypeScript]
-const proto = location.protocol === 'https:' ? 'wss' : 'ws'; // from ws.ts
-return `${proto}://${location.hostname}:8080/rawws`;
-\end{lstlisting}
-The URL builder and connection logic is from `ws.ts` and is used by `App.tsx`.
-The client only calls \texttt{refreshPolls()} when it receives the "pollsUpdated" message, which keeps network traffic low while still giving real-time updates.
-\begin{lstlisting}[language=TypeScript] 
-onWs(msg => { //from App.tsx
-  if (msg === "pollsUpdated") refreshPolls();
+onWs(msg => { // App.tsx
+if (msg === "pollsUpdated") refreshPolls();
 });
 \end{lstlisting}
-
+For more detailed updates (like comments or vote deltas), the frontend receives a small JSON message, 
+checks the type and only refreshes the parts that changed.
+The WebSocket server itself is simple, it keeps track of open sessions and has a couple of helper 
+methods for sending messages to all clients. This keeps the communication consistent and easy to extend.
+\subsection{Frontend}
+The React + TypeScript frontend fetches poll data over REST, while a single WebSocket connection listens for updates.
+Because of this, the UI reacts instantly when someone votes or comments, without reloading the page.
+The frontend is kept simple by splitting everything into components (CreatePoll, VoteOnPoll, CommentSection), 
+and \texttt{"App.tsx"} wires it all together using the small WebSocket helper in \texttt{"ws.ts"}.
 \subsection{Extensibility}
-The modular design supports new poll types, friend/sharing features, stronger authentication,
-and mobile clients reusing the same REST/WebSocket APIs. We planned to create our own external benchmarks, but due to time constraints we were not able to run them.
+Because the system is modular, it’s easy to add new features, such as new poll 
+types using the same event flow, mobile apps using the same API and WebSocket, 
+extra Kafka event types, or stronger authentication and sharing of private polls with friends. We planned to create our own external benchmarks, but due to time constraints we were not able to run them.

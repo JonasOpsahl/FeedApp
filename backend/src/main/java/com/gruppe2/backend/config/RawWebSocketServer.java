@@ -11,6 +11,8 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+// Inspiration: https://docs.spring.io/spring-framework/docs/4.3.15.RELEASE/spring-framework-reference/html/websocket.html#websocket-server
+
 @Configuration
 @EnableWebSocket
 public class RawWebSocketServer implements WebSocketConfigurer {
